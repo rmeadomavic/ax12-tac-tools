@@ -45,13 +45,15 @@ Takes a few minutes. It installs packages, clones the tools, copies Lua scripts 
 
 ## Step 3: Using It
 
-After install, there are three ways to launch tools:
+Open Chrome on the AX12 and go to `http://localhost:8080`. You'll see the tool launcher — big buttons organized by category. Tap one to run it.
 
-**Tap Termux** — the tool menu opens automatically. Arrow keys or tap to pick a tool, Enter to run it.
+**Bookmark it to your home screen:** In Chrome, tap the menu (three dots) > "Add to Home screen". Now it's an icon on your home screen like any other app.
 
-**Home screen widgets** — install [Termux:Widget](https://f-droid.org/en/packages/com.termux.widget/) from F-Droid. Then long-press your home screen > Widgets > Termux:Widget. You get individual buttons for ATAK Bridge, GPS Position, Airspace Brief, etc. Tap a button, the tool runs. No menus.
+The web launcher starts automatically on boot (if Termux:Boot is installed) or whenever Termux opens. You shouldn't have to think about it.
 
-**Command line** (over SSH or in Termux) — `tac atak`, `tac gps`, `tac airspace`, `tac --help`.
+**Settings:** Tap the gear icon to add/remove tools, reorder them, or change commands. Your changes are saved separately from the defaults so updates don't overwrite them.
+
+**Command line** (over SSH or in Termux) — `tac atak`, `tac gps`, `tac airspace`, `tac --help` still work.
 
 ---
 

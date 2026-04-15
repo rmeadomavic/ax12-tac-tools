@@ -101,7 +101,7 @@ ATAK defaults to online tile servers. For field use without internet:
 
 ### Test mode (no vehicle required)
 
-From the tool menu or the "ATAK Test" home screen button — sends a single CoT blip to verify ATAK is receiving. You can also run it from the command line:
+Tap **COT TEST** in the web launcher, or from the command line:
 
 ```bash
 tac cot-test
@@ -134,8 +134,8 @@ See `docs/mavlink-setup.md` for full ArduPilot parameter configuration.
 
 ### Launch (live)
 
-Tap the **ATAK Bridge** button on the home screen, or pick it from the tool
-menu in Termux, or from the command line:
+Tap **ATAK BRIDGE** in the web launcher (`http://localhost:8080`), or from
+the command line:
 
 ```bash
 tac atak

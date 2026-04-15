@@ -10,7 +10,7 @@ Install (one paste in Termux):
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-After that, tapping Termux opens the tool menu — no commands to remember. You can also add home screen buttons with [Termux:Widget](https://f-droid.org/en/packages/com.termux.widget/) so tools launch with a single tap. Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md).
+After that, open `http://localhost:8080` in Chrome and bookmark it to your home screen. Tap the bookmark — tools are right there. The server starts automatically on boot. Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)
@@ -47,7 +47,7 @@ After that, tapping Termux opens the tool menu — no commands to remember. You 
 
 ## Quick Start
 
-After install, tap Termux to open the tool menu. Or use home screen widget buttons. Or use the command line if you prefer:
+After install, open `http://localhost:8080` in Chrome (or tap your home screen bookmark). Tools are organized by category with big buttons — tap one to run it. You can also use the command line:
 
 ```bash
 tac atak       # start live drone tracking on ATAK

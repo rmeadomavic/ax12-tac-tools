@@ -1,0 +1,128 @@
+{
+  "categories": [
+    {
+      "name": "TAK",
+      "tools": [
+        {
+          "label": "ATAK BRIDGE",
+          "description": "Stream drone position to ATAK",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/cot_bridge.py",
+          "shortcut": "atak",
+          "requires": ["root", "serial:/dev/ttyS1"],
+          "long_running": true
+        },
+        {
+          "label": "MAVLINK BRIDGE",
+          "description": "Connect QGC/Mission Planner via ELRS",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
+          "shortcut": "mavlink",
+          "requires": [],
+          "long_running": true
+        },
+        {
+          "label": "COT TEST",
+          "description": "Send one test blip to verify ATAK",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/test_cot.py",
+          "shortcut": "cot-test",
+          "requires": [],
+          "long_running": false,
+          "timeout": 15
+        }
+      ]
+    },
+    {
+      "name": "FLIGHT OPS",
+      "tools": [
+        {
+          "label": "AIRSPACE",
+          "description": "Pre-flight airspace restriction check",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/airspace_check.py brief",
+          "shortcut": "airspace",
+          "requires": ["root"],
+          "long_running": false,
+          "timeout": 30
+        },
+        {
+          "label": "PAYLOAD DROP",
+          "description": "Aerial drop point calculator",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/payload_drop.py calc",
+          "shortcut": "drop",
+          "requires": ["root"],
+          "long_running": false,
+          "timeout": 30
+        },
+        {
+          "label": "ROVER NAV",
+          "description": "ArduRover GPS nav and geofencing",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py --demo",
+          "shortcut": "rover",
+          "requires": [],
+          "long_running": false,
+          "timeout": 30
+        },
+        {
+          "label": "GPS",
+          "description": "Current GPS fix from MT6631",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_tool.py position",
+          "shortcut": "gps",
+          "requires": ["root"],
+          "long_running": false,
+          "timeout": 15
+        }
+      ]
+    },
+    {
+      "name": "SENSORS",
+      "tools": [
+        {
+          "label": "IMU TRACKER",
+          "description": "ICM-42607 head tracking",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/imu_tracker.py",
+          "shortcut": "imu",
+          "requires": ["root"],
+          "long_running": true
+        },
+        {
+          "label": "GPS MONITOR",
+          "description": "Continuous GPS with NMEA and satellite info",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_position.py",
+          "shortcut": "gps-mon",
+          "requires": ["root"],
+          "long_running": true
+        },
+        {
+          "label": "HYDRA AI",
+          "description": "Object detection telemetry client",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/hydra_display.py demo",
+          "shortcut": "hydra",
+          "requires": [],
+          "long_running": false,
+          "timeout": 30
+        }
+      ]
+    },
+    {
+      "name": "SYSTEM",
+      "tools": [
+        {
+          "label": "UPDATE",
+          "description": "Pull latest code and re-copy Lua scripts",
+          "cmd": "__update__",
+          "shortcut": "update",
+          "requires": [],
+          "long_running": false,
+          "timeout": 60
+        },
+        {
+          "label": "REINSTALL LUA",
+          "description": "Re-copy Lua scripts to Flyshark",
+          "cmd": "__lua__",
+          "shortcut": "lua",
+          "requires": ["root"],
+          "long_running": false,
+          "timeout": 30
+        }
+      ]
+    }
+  ]
+}

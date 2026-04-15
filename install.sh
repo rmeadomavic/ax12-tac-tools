@@ -92,20 +92,31 @@ BOOT_DIR="$HOME/.termux/boot"
 SSHD_BOOT="$BOOT_DIR/start-sshd.sh"
 TERMUX_BOOT_APP="/data/data/com.termux.boot"
 
+TAC_BOOT="$BOOT_DIR/start-tac-web.sh"
+
 if [ -d "$TERMUX_BOOT_APP" ]; then
+    mkdir -p "$BOOT_DIR"
     if [ -f "$SSHD_BOOT" ]; then
-        skip "Termux:Boot sshd script already exists at $SSHD_BOOT"
+        skip "Termux:Boot sshd script already exists"
     else
-        mkdir -p "$BOOT_DIR"
         cat > "$SSHD_BOOT" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 sshd
 EOF
         chmod +x "$SSHD_BOOT"
-        ok "Termux:Boot auto-start script created at $SSHD_BOOT"
+        ok "sshd auto-start on boot"
     fi
+    # Web launcher boot script
+    cat > "$TAC_BOOT" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+# Start the web launcher in the background
+nohup /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/web_launcher.py > /dev/null 2>&1 &
+EOF
+    chmod +x "$TAC_BOOT"
+    ok "Web launcher auto-start on boot (port 8080)"
 else
-    info "Termux:Boot not installed — sshd won't auto-start on reboot"
+    info "Termux:Boot not installed — sshd and web launcher won't auto-start"
+    info "Install from F-Droid: f-droid.org/en/packages/com.termux.boot/"
 fi
 
 # Print SSH connection info
@@ -189,7 +200,17 @@ for lua_file in "$LUA_SRC"/*.lua; do
 done
 info "$LUA_COUNT Lua scripts installed, $LUA_FAIL failed"
 
-# ── Alias + auto-launch ──────────────────────────────────────────────────────
+# Copy default tools config if user doesn't have one
+USER_CONFIG="$HOME/.config/ax12-tac-tools/tools.json"
+if [ -f "$USER_CONFIG" ]; then
+    skip "User config already exists at $USER_CONFIG"
+else
+    mkdir -p "$(dirname "$USER_CONFIG")"
+    cp "$REPO_DIR/tools.json" "$USER_CONFIG"
+    ok "Tool config copied to $USER_CONFIG"
+fi
+
+# ── Alias + web launcher ─────────────────────────────────────────────────────
 BASHRC="$HOME/.bashrc"
 ALIAS_CMD="alias tac='$PYTHON3 $REPO_DIR/launcher.py'"
 
@@ -206,20 +227,18 @@ else
     ok "Added 'tac' alias to ~/.bashrc"
 fi
 
-# Auto-launch: opening Termux shows the tool menu (not a blank prompt).
-# Skipped over SSH so remote access still gets a normal shell.
-# Set TAC_NO_MENU=1 in your env to disable.
-if grep -q "TAC_NO_MENU" "$BASHRC" 2>/dev/null; then
-    skip "Auto-launch already configured"
+# Start web launcher if not already running (bashrc fallback for non-boot starts)
+if grep -q "tac-web" "$BASHRC" 2>/dev/null; then
+    skip "Web launcher bashrc hook already configured"
 else
-    cat >> "$BASHRC" <<'AUTOLAUNCH'
+    cat >> "$BASHRC" <<'WEBLAUNCH'
 
-# AX12 Tactical Tools — open menu on launch (skip over SSH)
-if [ -t 0 ] && [ -z "$SSH_CONNECTION" ] && [ -z "$TAC_NO_MENU" ]; then
-    /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/launcher.py
+# AX12 Tactical Tools — start web launcher if not running
+if ! pgrep -f "web_launcher.py" > /dev/null 2>&1; then
+    nohup /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/web_launcher.py > /dev/null 2>&1 &
 fi
-AUTOLAUNCH
-    ok "Termux will open the tool menu on launch"
+WEBLAUNCH
+    ok "Web launcher starts when Termux opens"
 fi
 
 # shellcheck disable=SC1090
@@ -324,11 +343,20 @@ echo -e "  Tests failed: ${RED}${TESTS_FAIL}${NC}"
 echo ""
 
 if [ "$TESTS_FAIL" -eq 0 ]; then
-    ok "Done. Tap Termux to open the tool menu."
-    info "Install Termux:Widget from F-Droid for home screen buttons."
+    ok "Done. Open http://localhost:8080 in Chrome."
+    info "Bookmark it to your home screen for app-like access."
+    info "The web launcher starts automatically on boot (Termux:Boot) or when Termux opens."
 else
     info "Completed with $TESTS_FAIL issue(s). Review [FAIL] lines above."
     info "Safe to re-run this script after fixing issues."
+fi
+
+# Start the web launcher now
+if ! pgrep -f "web_launcher.py" > /dev/null 2>&1; then
+    nohup "$PYTHON3" "$REPO_DIR/web_launcher.py" > /dev/null 2>&1 &
+    ok "Web launcher started on http://localhost:8080"
+else
+    skip "Web launcher already running"
 fi
 
 echo ""
