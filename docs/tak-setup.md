@@ -101,17 +101,17 @@ ATAK defaults to online tile servers. For field use without internet:
 
 ### Test mode (no vehicle required)
 
-Send a single CoT blip to verify ATAK connectivity:
+From the tool menu or the "ATAK Test" home screen button — sends a single CoT blip to verify ATAK is receiving. You can also run it from the command line:
 
 ```bash
-python3 tools/test_cot.py
+tac cot-test
 ```
 
-Or use the bridge's built-in synthetic source for a continuous moving track:
+For a continuous moving track (synthetic drone orbiting Null Island):
 
 ```bash
-tac atak --test
-# equivalent: su 0 python3 tools/cot_bridge.py --test
+tac atak
+# falls back to synthetic data automatically if no serial connection
 ```
 
 The synthetic source orbits `(0, 0)` — Null Island — at 100 m altitude. Open
@@ -134,9 +134,11 @@ See `docs/mavlink-setup.md` for full ArduPilot parameter configuration.
 
 ### Launch (live)
 
+Tap the **ATAK Bridge** button on the home screen, or pick it from the tool
+menu in Termux, or from the command line:
+
 ```bash
 tac atak
-# equivalent: su 0 python3 tools/cot_bridge.py
 ```
 
 Root is required for serial port access. If the serial port cannot be opened,

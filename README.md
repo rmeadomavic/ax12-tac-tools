@@ -4,13 +4,13 @@ The AX12 runs Android. These tools put your drone on ATAK while you fly it — C
 
 Also: TAK-style HUD overlay for the touchscreen (MGRS, compass, RSSI/LQ, mission timer), CCIP, 9-line CAS template, freq decon, preflight checklist, and a bunch of other field tools. All runs on-device in Termux, stdlib Python, no dependencies.
 
-Install:
+Install (one paste in Termux):
 
 ```
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-Then type `tac`. Full setup walkthrough in [GETTING_STARTED.md](GETTING_STARTED.md).
+After that, tapping Termux opens the tool menu — no commands to remember. You can also add home screen buttons with [Termux:Widget](https://f-droid.org/en/packages/com.termux.widget/) so tools launch with a single tap. Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)
@@ -47,7 +47,7 @@ Then type `tac`. Full setup walkthrough in [GETTING_STARTED.md](GETTING_STARTED.
 
 ## Quick Start
 
-Already installed? Type `tac` for the launcher menu, or use shortcuts:
+After install, tap Termux to open the tool menu. Or use home screen widget buttons. Or use the command line if you prefer:
 
 ```bash
 tac atak       # start live drone tracking on ATAK
@@ -55,15 +55,6 @@ tac mavlink    # connect QGroundControl via ELRS
 tac gps        # show current GPS position
 tac airspace   # pre-flight airspace briefing
 tac --help     # list all shortcuts
-```
-
-Manual commands (if you prefer):
-
-```bash
-su 0 python3 tools/cot_bridge.py --test          # ATAK CoT bridge (synthetic data)
-su 0 python3 tools/mavlink_bridge.py test         # MAVLink bridge (synthetic data)
-su 0 python3 tools/airspace_check.py brief        # pre-flight airspace brief
-su 0 python3 tools/gps_tool.py position           # current GPS position
 ```
 
 ## Tools
@@ -83,7 +74,7 @@ su 0 python3 tools/gps_tool.py position           # current GPS position
 
 ## Lua Scripts
 
-Copy `.lua` files to `/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS/` on the device. Access via RadioMaster App > System Menu > Lua Scripts > Tools.
+Installed automatically. Access: RadioMaster App > System Menu > Lua Scripts > Tools.
 
 ### Tactical
 
@@ -123,10 +114,10 @@ Copy `.lua` files to `/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS/` on the device.
 
 ## Prerequisites
 
-- RadioMaster AX12 with root access (factory userdebug build)
-- Termux with Python 3.10+
-- ELRS firmware 3.5+ for MAVLink link mode
-- ATAK for CoT integration (optional)
+- RadioMaster AX12 (stock firmware — root is built in)
+- Termux (installer handles everything else)
+- ELRS 3.5+ for MAVLink link mode
+- ATAK on the AX12 for live tracking
 
 ## Related
 
