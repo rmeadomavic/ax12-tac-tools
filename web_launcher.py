@@ -680,7 +680,8 @@ function escHtml(s) {
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
-        pass  # suppress access logs
+        sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
+        sys.stderr.flush()
 
     def _json(self, data, code=200):
         body = json.dumps(data).encode()
