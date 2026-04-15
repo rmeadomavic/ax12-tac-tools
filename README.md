@@ -1,19 +1,20 @@
 # AX12 Tactical Tools
 
-**See your drone on a real map — live on the controller in your hands.**
+**Blue force tracking on your controller. Your UAS shows up on ATAK — live, on the handset, while you fly.**
 
-The RadioMaster AX12 runs Android. These tools turn it into a tactical ground station: ATAK shows your drone's real-time GPS position on a moving map directly on the AX12's touchscreen while you fly. No extra phone, no extra tablet, no laptop — your controller IS the map.
+The RadioMaster AX12 runs Android. These tools turn it into a field-ready TAK endpoint: the CoT bridge reads MAVLink telemetry off the ELRS link and pushes your aircraft's position, altitude, heading, and flight mode to the common operating picture in real time. The operator flying the aircraft IS the operator watching the COP. No second device, no GCS laptop in the truck.
 
-**What you get:**
-- **Live drone tracking** — your aircraft appears on the ATAK map in real time, updating as it flies. Altitude, heading, speed, flight mode — all on screen while you hold the sticks.
-- **TAK-style HUD** — a military heads-up display overlay (Lua script) showing MGRS grid, compass, RSSI, link quality, and mission timer directly in the RadioMaster app.
-- **One-command install** — paste one line into Termux and everything sets itself up. Type `tac` to launch.
+**Capabilities:**
+- **UAS blue force tracking** — live CoT feed to ATAK. Aircraft position updates on the COP at 0.5 Hz. Callsign, altitude MSL, ground speed, heading, flight mode, armed state.
+- **TAK OSD** — HUD overlay on the AX12 touchscreen: MGRS grid, compass rose, RSSI/LQ, mission elapsed time. Runs in the radio app alongside normal stick control.
+- **Mission tools** — CCIP targeting, 9-line CAS brief (auto-fills grid/elev from GPS), frequency deconfliction, 6-phase mission timer, 12-item preflight checklist with GO/NO-GO.
+- **Field install** — one command in Termux, 5 minutes, no dependencies to chase.
 
 ```
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-**[Get started here](GETTING_STARTED.md)** — full walkthrough from unboxing to drone-on-map in 30 minutes.
+**[Setup guide](GETTING_STARTED.md)** — Termux install through ATAK integration, 30 minutes.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)

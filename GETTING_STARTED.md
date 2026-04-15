@@ -1,42 +1,33 @@
 # Getting Started with AX12 Tactical Tools
 
-Your RadioMaster AX12 isn't just a remote control — it's an Android computer with a touchscreen, GPS, and WiFi. These tools turn it into a live tactical display: **your drone appears on a real map on the controller in your hands, updating in real time as it flies.** You see its position, altitude, heading, speed, and flight mode — all while holding the sticks. No phone, no tablet, no laptop required.
+These tools put your UAS on the TAK common operating picture — live, on the handset you're already holding. The AX12 runs Android with a touchscreen. The CoT bridge reads MAVLink telemetry off the ELRS link and feeds your aircraft's position to ATAK in real time. You fly and maintain SA on the COP from the same device. No GCS laptop, no second phone, no extra gear.
 
-Beyond live tracking, you get 20+ Lua scripts (military HUD, targeting, mission timer, preflight checklists) and Python tools for airspace checks, payload drop calculations, and rover navigation. One install command, then you're operational.
+You also get 20+ Lua scripts for the radio's touchscreen — TAK OSD, CCIP targeting, 9-line CAS brief, MGRS converter, mission timer, preflight checklist — and Python field tools for airspace, payload drop calculations, and GPS. One command to install, then you're operational.
 
 ---
 
-## What You Need
+## Requirements
 
-- RadioMaster AX12 transmitter
-- WiFi network (during setup)
-- About 30 minutes
+- RadioMaster AX12 (stock firmware)
+- WiFi (for initial setup only — everything runs on-device after that)
+- ATAK installed on the AX12 (for UAS tracking on the COP)
+- ~30 minutes for setup
 
 ---
 
 ## Step 1: Install Termux
 
-Termux is a terminal app for Android — it's how you run commands on the AX12. You need the official version from GitHub, **not** the Google Play version.
+Termux is a Linux terminal for Android — it's how the tools run on the AX12. **Do not use the Google Play version** — it's broken. Get the real one:
 
-> **Do NOT install the Google Play version — it's outdated and broken.**
+**From the AX12 (no computer):**
+1. Open browser on the AX12 → `github.com/termux/termux-app/releases`
+2. Download the **universal APK**
+3. Install it (allow unknown sources if prompted)
 
-### Option A: From the AX12 itself (no computer needed)
-
-1. Open the browser on the AX12
-2. Go to: `github.com/termux/termux-app/releases`
-3. Download the latest **universal APK** (look for `termux-app_v*_universal.apk`)
-4. When prompted, tap **Install** — if Android asks to allow installs from unknown sources, accept it
-
-### Option B: From your computer via ADB
-
-1. Download the universal APK from `github.com/termux/termux-app/releases` on your computer
-2. Enable USB debugging on the AX12:
-   - Go to **Settings > About**
-   - Tap **Build Number** 7 times until you see "You are now a developer"
-   - Go back to **Settings > Developer Options**
-   - Enable **USB Debugging**
-3. Connect the AX12 to your computer with a USB cable
-4. Run: `adb install termux.apk`
+**From a computer via ADB:**
+1. Download the APK from the same link
+2. Enable USB debugging: Settings > About > tap Build Number 7x > Developer Options > USB Debugging
+3. `adb install termux-app_*.apk`
 
 ---
 
@@ -88,72 +79,82 @@ You can also call tools directly from the command line:
 
 ---
 
-## TAK Integration (The Main Event)
+## ATAK Integration — UAS on the COP
 
-This is what you came here for. ATAK (Android Team Awareness Kit) is the mapping app used by US military and first responders for real-time situational awareness. Install it on your AX12 and run the CoT bridge — now your drone's live GPS position streams straight from the ELRS link onto the map on your controller's screen. You fly the drone and watch it move on the map at the same time, on the same device, in your hands. Altitude, speed, heading, flight mode — all updating in real time.
+The CoT bridge reads MAVLink from the ELRS serial link and pushes your aircraft to ATAK as a `a-f-A-M-F-Q` (friendly air, UAV) track. Position, altitude MSL, heading, ground speed, flight mode, armed state — all on the COP at 0.5 Hz.
 
-### Install ATAK
+### Install ATAK on the AX12
 
-Two options:
-- **Recommended:** Register (free) at [tak.gov](https://tak.gov) and download ATAK
-- **Quicker:** Search the Play Store for **"ATAK-CIV"** (civilian version)
+- **CivTAK** from [tak.gov](https://tak.gov) (free registration) — recommended
+- **ATAK-CIV** from Play Store — if Play Services are set up on the device
+- Sideload via ADB: `adb install ATAK-CIV-*.apk`
 
-### Configure ATAK
+### Configure Network Input
 
-Once ATAK is installed on your phone or tablet:
+1. ATAK > Settings > **Network Preferences**
+2. Add UDP input: port **4242**, address **0.0.0.0**
+3. Return to map
 
-1. Open ATAK > **Settings > Network Preferences**
-2. Tap **Add Input**
-3. Set protocol to **UDP**
-4. Set port to **4242**
-5. Set address to **0.0.0.0** (listens on all interfaces)
-6. Save and return to the map
+### Verify
 
-### Test the connection
+```
+tac cot-test
+```
 
-Run `tac cot-test` in Termux. This sends a test position packet to ATAK. Look for a marker called **"ELRS-Drone-1"** appearing at Null Island (0°N, 0°E) on the map. If you see it, your network path is working.
+Sends a single CoT event to `127.0.0.1:4242`. Look for **ELRS-Drone-1** at 0°N 0°E on the map. If it shows, the path is good.
 
-### Go live
+### Go Live
 
-Run `tac atak` to start the live bridge. It reads MAVLink telemetry from your drone via the ELRS link and forwards it to ATAK as CoT (Cursor on Target) messages in real time.
+```
+tac atak
+```
 
-**Requirements for live operation:**
-- ELRS 3.5 or newer
-- ESP-based receiver (e.g. EP1, EP2, SuperMini)
-- MAVLink link mode enabled on the receiver
-- ArduPilot flight controller with telemetry configured
+Reads MAVLink from `/dev/ttyS1` (ELRS passthrough UART, 460800 baud), converts to CoT XML, pushes to ATAK on localhost. Aircraft appears on the map and updates as it flies.
 
-For full MAVLink setup instructions, see [docs/mavlink-setup.md](docs/mavlink-setup.md).
+**Requires:**
+- ELRS TX/RX firmware 3.5+ with MAVLink link mode enabled
+- ESP-based receiver (RP1/RP2/RP3, EP1/EP2 — STM receivers lack bandwidth)
+- ArduPilot FC with MAVLink on the RX UART (`SERIALn_PROTOCOL=2`, `SERIALn_BAUD=460`)
 
-### Troubleshooting ATAK
+Full FC and ELRS config: [docs/mavlink-setup.md](docs/mavlink-setup.md)
 
-| Problem | Fix |
+### Multi-device
+
+To feed ATAK on a separate device (EUD, tablet, TAK server):
+
+```
+su 0 python3 tools/cot_bridge.py --atak-host 192.168.1.50    # specific device
+su 0 python3 tools/cot_bridge.py --atak-host 239.2.3.1       # multicast to all TAK clients
+```
+
+Full TAK configuration reference: [docs/tak-setup.md](docs/tak-setup.md)
+
+### Troubleshooting
+
+| Issue | Fix |
 |---|---|
-| No icon on map after `tac cot-test` | Check ATAK UDP input is set to port 4242 |
-| Drone icon appears but doesn't move | Check ELRS receiver is in MAVLink mode, not CRSF passthrough |
-| "Serial port busy" error | Flyshark holds ttyS0 — ATAK bridge uses ttyS1 separately, so close Flyshark and retry |
+| No track on COP | Verify ATAK UDP input on 4242. Run `tac cot-test` to isolate. |
+| Track appears but stale | ELRS not in MAVLink mode — check ELRS Lua > Link Mode. |
+| Serial port error | Another process on ttyS1. Kill or use `--test` for synthetic data. |
 
 ---
 
-## Lua Scripts
+## On-Screen Tools (Lua Scripts)
 
-Lua scripts run directly on the AX12's touchscreen through the RadioMaster app. No phone or external device needed.
+These run on the AX12 touchscreen inside the RadioMaster app — no Termux, no second app. Access: **System Menu > Lua Scripts > Tools**.
 
-**To access them:** RadioMaster App > System Menu > Lua Scripts > Tools
-
-Highlights:
-
-| Script | What it does |
+| Script | Capability |
 |---|---|
-| TAK OSD | Displays ATAK-style HUD overlay with drone position data |
-| CCIP | Continuously Computed Impact Point — ballistic targeting reticle |
-| 9-Line CAS | Close Air Support 9-line briefing form |
-| MGRS Tool | Military Grid Reference System coordinate converter |
-| Preflight | Systematic pre-flight checklist |
-| Mission Timer | Elapsed and countdown timer with audio alerts |
-| Wind Calc | Wind drift calculator for fixed-wing and payload drops |
+| **TAK OSD** | HUD overlay — MGRS grid, compass, RSSI/LQ, mission elapsed timer |
+| **CCIP** | Continuously Computed Impact Point — ballistic model, range rings, RELEASE cue |
+| **9-Line CAS** | CAS brief template — auto-fills target grid and elevation from GPS |
+| **MGRS Tool** | WGS84 → MGRS converter, waypoint save, distance/bearing to saved points |
+| **Freq Decon** | RF frequency deconfliction — 900/2400/5800 MHz bands, conflict detection |
+| **Mission Timer** | 6-phase: STARTUP / LAUNCH / TRANSIT / ON STATION / RTB / RECOVERY |
+| **Preflight** | 12-item checklist with telemetry auto-check, GO/NO-GO |
+| **Wind Calc** | Headwind/crosswind components, Beaufort scale, GO/NO-GO for fixed-wing |
 
-Full documentation for all scripts: [lua/README.md](lua/README.md)
+Full list: [lua/README.md](lua/README.md)
 
 ---
 
@@ -188,14 +189,8 @@ The install added the alias to `~/.bashrc` but your current session doesn't have
 
 ---
 
-## Deep Dive
+## Platform Reference
 
-Want to go further? The companion research repo has everything:
+Hardware reverse engineering, protocol documentation, and advanced tooling: [ax12-research](https://github.com/rmeadomavic/ax12-research)
 
-**[github.com/rmeadomavic/ax12-research](https://github.com/rmeadomavic/ax12-research)**
-
-Includes:
-- Root access guide (the AX12 ships with factory root — here's how to use it)
-- Hardware teardown with photos
-- UMBUS serial protocol reverse-engineering notes
-- Full tool usage guide with examples
+Covers: root/developer setup, hardware teardown, UMBUS serial protocol, device tree, ELRS backpack internals, and the full tool reference.
