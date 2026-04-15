@@ -33,31 +33,26 @@ use serial for CoT and WiFi for GCS without conflict.
 
 ## Installing ATAK
 
-### Option 1: CivTAK from tak.gov (recommended)
+**The AX12 runs Android 9. ATAK 5.x requires Android 10+ and will not
+install.** You need **ATAK-CIV 4.10.x** — the last version supporting
+Android 9. No Google Play Services needed.
 
-Register for a free account at `tak.gov`, download the CivTAK APK, and
-sideload it onto the AX12.
+### Option 1: tak.gov (recommended)
+
+Register (free) at `tak.gov`, download **ATAK-CIV 4.10.x** (not the latest),
+and sideload onto the AX12:
 
 ```bash
 adb connect <AX12-IP>:5555
-adb install ATAK-CIV-*.apk
+adb install ATAK-CIV-4.10.*.apk
 ```
 
-CivTAK is the civilian-licensed version of ATAK with full map and CoT support.
-Registration is free and unlocks the full feature set.
+### Option 2: Team distribution
 
-### Option 2: ATAK-CIV from Google Play Store
-
-Search for **ATAK-CIV** in the Play Store. The AX12 ships without Google Play
-Services so this option may require installing the Play Store framework first.
-Use Option 1 or Option 3 if Play Store is unavailable.
-
-### Option 3: Sideload via ADB
-
-If you already have the APK (from tak.gov or a team distribution):
+If you already have the 4.10 APK from your unit or team:
 
 ```bash
-adb connect <AX12-IP>:5555 && adb install ATAK-CIV-*.apk
+adb connect <AX12-IP>:5555 && adb install ATAK-CIV-4.10.*.apk
 ```
 
 Enable ADB over TCP on the AX12 first:

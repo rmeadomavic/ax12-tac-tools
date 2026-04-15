@@ -63,9 +63,11 @@ The CoT bridge reads MAVLink off the ELRS serial link and pushes your aircraft t
 
 ### Install ATAK on the AX12
 
-- **CivTAK** from [tak.gov](https://tak.gov) (free registration) — recommended
-- **ATAK-CIV** from Play Store — if Play Services are set up on the device
-- Sideload via ADB: `adb install ATAK-CIV-*.apk`
+**The AX12 runs Android 9. ATAK 5.x requires Android 10+ and will not install.** You need **ATAK-CIV 4.10.x** — the last version that supports Android 9.
+
+- Download from [tak.gov](https://tak.gov) (free registration) — get the **4.10** APK, not the latest
+- No Google Play Services needed — sideload the APK directly
+- Or via ADB: `adb install ATAK-CIV-4.10.*.apk`
 
 ### Configure Network Input
 

@@ -117,7 +117,7 @@ Installed automatically. Access: RadioMaster App > System Menu > Lua Scripts > T
 - RadioMaster AX12 (stock firmware — root is built in)
 - Termux (installer handles everything else)
 - ELRS 3.5+ for MAVLink link mode
-- ATAK on the AX12 for live tracking
+- ATAK-CIV **4.10.x** on the AX12 for live tracking (5.x requires Android 10+, won't install)
 
 ## Related
 
