@@ -9,24 +9,32 @@ Usage:
     python3 web_launcher.py --port 9090  # custom port
 """
 
+# ── Imports ──────────────────────────────────────────────────────────────────
+
+import base64
 import html as html_mod
 import http.server
 import json
 import os
 import re
 import signal
+import socket
 import socketserver
 import subprocess
 import sys
 import threading
 import time
 
-import base64
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 1. CONSTANTS AND CONFIG
+# ══════════════════════════════════════════════════════════════════════════════
 
 PORT = 8080
+MAX_OUTPUT_LINES = 10000
 
 # 192x192 tactical crosshair icon (base64 PNG)
-ICON_B64 = "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"
+ICON_B64 = "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"
 ICON_PNG = base64.b64decode(ICON_B64)
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON3 = "/data/data/com.termux/files/usr/bin/python3"
@@ -37,7 +45,10 @@ LUA_DEST = "/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS"
 USER_CONFIG = os.path.expanduser("~/.config/ax12-tac-tools/tools.json")
 DEFAULT_CONFIG = os.path.join(REPO_DIR, "tools.json")
 
-# ── Process management ────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2. PROCESS MANAGEMENT
+# ══════════════════════════════════════════════════════════════════════════════
 
 _proc_lock = threading.Lock()
 _current_proc = None     # subprocess.Popen
@@ -63,7 +74,11 @@ def _read_output(proc):
 
 
 def start_tool(cmd, label, timeout=None):
-    """Start a tool subprocess. Returns (ok, error_msg)."""
+    """Start a tool subprocess. Returns (ok, error_msg).
+
+    Bug fix: the entire body runs under _proc_lock to prevent races
+    between the liveness check and subprocess spawn.
+    """
     global _current_proc, _current_label, _output_lines, _proc_done, _proc_exit_code
 
     with _proc_lock:
@@ -74,35 +89,35 @@ def start_tool(cmd, label, timeout=None):
         _proc_exit_code = None
         _current_label = label
 
-    env = os.environ.copy()
-    env["PATH"] = "/data/data/com.termux/files/usr/bin:" + env.get("PATH", "")
-    env["HOME"] = os.path.expanduser("~")
-    env["TERM"] = "dumb"
+        env = os.environ.copy()
+        env["PATH"] = "/data/data/com.termux/files/usr/bin:" + env.get("PATH", "")
+        env["HOME"] = os.path.expanduser("~")
+        env["TERM"] = "dumb"
 
-    try:
-        proc = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1, env=env, cwd=REPO_DIR,
-            preexec_fn=os.setsid,
-        )
-    except Exception as e:
-        return False, str(e)
+        try:
+            proc = subprocess.Popen(
+                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, env=env, cwd=REPO_DIR,
+                preexec_fn=os.setsid,
+            )
+        except Exception as e:
+            return False, str(e)
 
-    with _proc_lock:
         _current_proc = proc
 
     t = threading.Thread(target=_read_output, args=(proc,), daemon=True)
     t.start()
 
-    # Auto-kill after timeout (non-long-running tools)
+    # Auto-kill after timeout (non-long-running tools).
+    # Bug fix: capture proc as default arg so the closure times the right process.
     if timeout and timeout > 0:
-        def _auto_kill():
+        def _auto_kill(target_proc=proc):
             time.sleep(timeout)
             with _proc_lock:
-                if _current_proc and _current_proc.poll() is None:
+                if target_proc.poll() is None:
                     _output_lines.append(("out", f"\n[TIMEOUT] Killed after {timeout}s\n"))
                     try:
-                        os.killpg(os.getpgid(_current_proc.pid), signal.SIGKILL)
+                        os.killpg(os.getpgid(target_proc.pid), signal.SIGKILL)
                     except Exception:
                         pass
         threading.Thread(target=_auto_kill, daemon=True).start()
@@ -133,13 +148,25 @@ def stop_tool(force=False):
 
 
 def get_output_since(index):
-    """Get output lines since index. Returns (lines, new_index, done, exit_code)."""
+    """Get output lines since index. Returns (lines, new_index, done, exit_code).
+
+    Bug fix: trims _output_lines when it exceeds MAX_OUTPUT_LINES to prevent
+    unbounded memory growth from long-running tools.
+    """
     with _proc_lock:
+        # Trim old entries if buffer is too large
+        if len(_output_lines) > MAX_OUTPUT_LINES:
+            excess = len(_output_lines) - MAX_OUTPUT_LINES
+            del _output_lines[:excess]
+            # Adjust caller's index so they don't re-read or skip
+            index = max(0, index - excess)
         new_lines = _output_lines[index:]
         return new_lines, len(_output_lines), _proc_done, _proc_exit_code
 
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# 3. CONFIG LOADING / SAVING
+# ══════════════════════════════════════════════════════════════════════════════
 
 def load_config():
     """Load tools config. User config takes priority over default."""
@@ -158,7 +185,9 @@ def save_config(data):
         json.dump(data, f, indent=2)
 
 
-# ── Pre-flight checks ────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# 4. PRE-FLIGHT CHECKS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def check_requirements(requires):
     """Check a list of requirements. Returns (ok, [failure_messages])."""
@@ -213,7 +242,7 @@ def check_requirements(requires):
     return len(failures) == 0, failures
 
 
-# ── Special commands ──────────────────────────────────────────────────────────
+# ── Special commands ─────────────────────────────────────────────────────────
 
 def run_special(cmd):
     """Run a special __command__ and return output string."""
@@ -257,7 +286,9 @@ def _copy_lua():
     return "\n".join(lines)
 
 
-# ── Setup wizard checks ───────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# 5. SETUP WIZARD CHECKS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def check_atak_installed():
     try:
@@ -320,8 +351,10 @@ def run_setup_check():
     installed, pkg = check_atak_installed()
     checks["atak_installed"] = {"ok": installed, "detail": pkg if installed else "Not installed"}
 
+    # Bug fix: call check_atak_udp_configured once, store the result
     if installed:
-        checks["atak_udp"] = {"ok": check_atak_udp_configured(), "detail": "UDP 4242" if check_atak_udp_configured() else "Not configured"}
+        udp_ok = check_atak_udp_configured()
+        checks["atak_udp"] = {"ok": udp_ok, "detail": "UDP 4242" if udp_ok else "Not configured"}
     else:
         checks["atak_udp"] = {"ok": False, "detail": "ATAK not installed"}
 
@@ -329,87 +362,15 @@ def run_setup_check():
     return checks
 
 
-SETUP_HTML = r"""<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>AX12 SETUP</title><link rel="icon" href="/icon.png" type="image/png">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{background:#0a0a0a;color:#e0e0e0;font-family:'Courier New',monospace;font-size:14px}
-.hdr{background:#0f0f0f;padding:12px 16px;border-bottom:1px solid #1a3a1a;display:flex;justify-content:space-between;align-items:center}
-.logo{font-size:13px;font-weight:700;color:#4a4;letter-spacing:3px}
-.back-link{color:#3a3;font-size:11px;cursor:pointer;padding:8px;letter-spacing:1px}
-.wrap{padding:16px;max-width:480px;margin:0 auto}
-.step{background:#0f0f0f;border:1px solid #1a3a1a;border-radius:4px;padding:14px;margin-bottom:12px}
-.step-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.step-title{font-size:12px;font-weight:700;color:#6c6;letter-spacing:1px}
-.step-status{font-size:10px;padding:2px 8px;border-radius:2px;letter-spacing:1px}
-.step-status.ok{color:#4f4;background:rgba(79,255,79,0.1);border:1px solid #2a4a2a}
-.step-status.fail{color:#c66;background:rgba(204,102,102,0.1);border:1px solid #4a2a2a}
-.step-status.manual{color:#ca3;background:rgba(204,170,51,0.1);border:1px solid #4a3a1a}
-.step-status.loading{color:#3a3;background:rgba(42,74,42,0.1);border:1px solid #1a3a1a}
-.step-body{font-size:11px;color:#4a4;line-height:1.6}
-.step-body code{background:#111;padding:1px 4px;border-radius:2px;color:#6c6}
-.step-btn{background:#1a2a1a;border:1px solid #2a4a2a;color:#6c6;padding:8px 16px;border-radius:3px;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;margin-top:8px}
-.step-btn:active{background:#2a3a2a}
-.step-btn.disabled{opacity:0.3;pointer-events:none}
-.params{background:#111;border:1px solid #1a3a1a;border-radius:3px;padding:8px;margin:8px 0;font-size:10px;line-height:1.8}
-.params .k{color:#ca3}.params .v{color:#6c6}
-.note{font-size:10px;color:#555;margin-top:6px;line-height:1.4}
-</style></head><body>
-<div class="hdr">
-  <div class="logo">FIRST TIME SETUP</div>
-  <div class="back-link" onclick="location.href='/'">BACK</div>
-</div>
-<div class="wrap">
-  <div class="step"><div class="step-hdr"><div class="step-title">1. ROOT ACCESS</div><div class="step-status loading" id="s1">CHECKING</div></div><div class="step-body">Factory root via su 0.</div></div>
-
-  <div class="step"><div class="step-hdr"><div class="step-title">2. INSTALL ATAK</div><div class="step-status loading" id="s2">CHECKING</div></div><div class="step-body" id="b2">Checking...</div></div>
-
-  <div class="step"><div class="step-hdr"><div class="step-title">3. ATAK NETWORK INPUT</div><div class="step-status loading" id="s3">CHECKING</div></div><div class="step-body" id="b3">Checking...</div></div>
-
-  <div class="step"><div class="step-hdr"><div class="step-title">4. ELRS MAVLINK MODE</div><div class="step-status manual" id="s4">MANUAL</div></div>
-  <div class="step-body">Open Flyshark on the AX12:<br><br><b>System Menu &gt; ELRS Lua &gt; Link Mode &gt; MAVLink</b><br><br>Tap <b>Save &amp; Reboot</b>. Then power cycle the receiver on the drone.<br><div class="note">Both TX and RX need ELRS 3.5+. You can switch back to CRSF anytime for normal flying.</div></div></div>
-
-  <div class="step"><div class="step-hdr"><div class="step-title">5. FLIGHT CONTROLLER</div><div class="step-status manual" id="s5">MANUAL</div></div>
-  <div class="step-body">Connect to FC with Mission Planner or QGC. Set on the UART where ELRS RX is connected:<div class="params"><span class="k">SERIALn_PROTOCOL</span> = <span class="v">2</span> (MAVLink 2)<br><span class="k">SERIALn_BAUD</span> = <span class="v">460</span> (460800)<br><span class="k">SRn_POSITION</span> = <span class="v">1</span><br><span class="k">SRn_EXTRA1</span> = <span class="v">1</span><br><span class="k">SRn_EXTRA2</span> = <span class="v">1</span><br><span class="k">SRn_EXT_STAT</span> = <span class="v">1</span></div>Reboot FC after saving. RX must be ESP-based (RP1/RP2/RP3, EP1/EP2).<div class="note">Only needs to be done once per drone.</div></div></div>
-
-  <div class="step"><div class="step-hdr"><div class="step-title">6. FLY</div><div class="step-status ok" id="s6">READY</div></div>
-  <div class="step-body">Power on drone, wait for GPS lock, tap <b>ATAK BRIDGE</b>, switch to ATAK. Your drone is on the map.<br><br><button class="step-btn" onclick="location.href='/'">BACK TO TOOLS</button></div></div>
-</div>
-<script>
-fetch('/api/setup-check').then(r=>r.json()).then(d=>{
-  const s1=document.getElementById('s1');
-  if(d.root.ok){s1.textContent='OK';s1.className='step-status ok'}else{s1.textContent='FAIL';s1.className='step-status fail'}
-
-  const s2=document.getElementById('s2'),b2=document.getElementById('b2');
-  if(d.atak_installed.ok){s2.textContent='INSTALLED';s2.className='step-status ok';b2.innerHTML=d.atak_installed.detail}
-  else{s2.textContent='NOT FOUND';s2.className='step-status fail';b2.innerHTML='<b>IMPORTANT:</b> The AX12 runs Android 9. ATAK 5.x requires Android 10+. You need <b>ATAK-CIV 4.10</b>.<br><br>Download:<br>&bull; <a href="https://apkpure.com/atak-civ-civil-use/com.atakmap.app.civ/versions" style="color:#6c6" target="_blank">APKPure — ATAK old versions</a> (get 4.10.0)<br>&bull; <a href="https://files.civtak.org" style="color:#6c6" target="_blank">files.civtak.org</a> (official repo)<br>&bull; <a href="https://github.com/deptofdefense/AndroidTacticalAssaultKit-CIV/releases" style="color:#6c6" target="_blank">GitHub releases</a> (DoD source)<br><br>Install the APK, open ATAK once, then come back.<br><br><button class="step-btn" onclick="location.reload()">CHECK AGAIN</button>'}
-
-  const s3=document.getElementById('s3'),b3=document.getElementById('b3');
-  if(d.atak_udp.ok){s3.textContent='CONFIGURED';s3.className='step-status ok';b3.innerHTML='UDP 4242 input ready.'}
-  else if(!d.atak_installed.ok){s3.textContent='WAITING';s3.className='step-status manual';b3.innerHTML='Install ATAK first (step 2).'}
-  else{s3.textContent='NOT SET';s3.className='step-status fail';b3.innerHTML='ATAK needs UDP input on port 4242.<br><br><button class="step-btn" id="cfg-btn" onclick="cfgAtak()">AUTO-CONFIGURE</button><div class="note" id="cfg-msg"></div><br><div class="note">If auto-config fails: ATAK &gt; Settings &gt; Network Preferences &gt; Add &gt; UDP, port 4242, address 0.0.0.0</div>'}
-}).catch(()=>{document.getElementById('s1').textContent='ERROR'});
-
-function cfgAtak(){
-  const b=document.getElementById('cfg-btn'),m=document.getElementById('cfg-msg');
-  b.classList.add('disabled');b.textContent='CONFIGURING...';
-  fetch('/api/setup-configure-atak',{method:'POST'}).then(r=>r.json()).then(d=>{
-    if(d.ok){m.innerHTML='<span style="color:#4f4">'+d.message+'</span>';document.getElementById('s3').textContent='CONFIGURED';document.getElementById('s3').className='step-status ok'}
-    else{m.innerHTML='<span style="color:#c66">'+d.message+'</span>';b.classList.remove('disabled');b.textContent='RETRY'}
-  }).catch(e=>{m.innerHTML='<span style="color:#c66">'+e+'</span>';b.classList.remove('disabled');b.textContent='RETRY'});
-}
-</script></body></html>"""
-
-
-#── ANSI to HTML ──────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. ANSI TO HTML CONVERSION
+# ══════════════════════════════════════════════════════════════════════════════
 
 ANSI_COLORS = {
-    "30": "#333", "31": "#c53030", "32": "#5a9c4f", "33": "#b45309",
-    "34": "#3b82f6", "35": "#a855f7", "36": "#5a9c4f", "37": "#ccc",
-    "90": "#555", "91": "#ef5350", "92": "#6fbf5f", "93": "#f59e0b",
-    "94": "#60a5fa", "95": "#c084fc", "96": "#7fcf6f", "97": "#eee",
+    "30": "#333", "31": "#ef4444", "32": "#00d4aa", "33": "#f59e0b",
+    "34": "#3b82f6", "35": "#a855f7", "36": "#00d4aa", "37": "#ccc",
+    "90": "#555", "91": "#ef5350", "92": "#34d399", "93": "#fbbf24",
+    "94": "#60a5fa", "95": "#c084fc", "96": "#5eead4", "97": "#eee",
 }
 
 
@@ -439,7 +400,9 @@ def ansi_to_html(text):
     return "".join(result)
 
 
-# ── Device status ─────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# 7. DEVICE STATUS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_status():
     """Battery % and uptime."""
@@ -459,7 +422,40 @@ def get_status():
     return batt, uptime
 
 
-# ── HTML ──────────────────────────────────────────────────────────────────────
+def get_full_status():
+    """Full device status for the /api/status endpoint."""
+    batt, uptime = get_status()
+
+    # GPS: check if /dev/stpgps exists or dumpsys shows a fix
+    gps_ok = False
+    if os.path.exists("/dev/stpgps"):
+        gps_ok = True
+    else:
+        try:
+            r = subprocess.run(
+                ["su", "0", "dumpsys", "location"],
+                capture_output=True, text=True, timeout=3)
+            if "Location[" in r.stdout:
+                gps_ok = True
+        except Exception:
+            pass
+
+    # Serial ports
+    serial_ttyS0 = os.path.exists("/dev/ttyS0")
+    serial_ttyS1 = os.path.exists("/dev/ttyS1")
+
+    return {
+        "battery": batt,
+        "uptime": uptime,
+        "gps": gps_ok,
+        "serial_ttyS0": serial_ttyS0,
+        "serial_ttyS1": serial_ttyS1,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 8. HTML TEMPLATES
+# ══════════════════════════════════════════════════════════════════════════════
 
 def build_page():
     config = load_config()
@@ -493,87 +489,225 @@ PAGE_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#08090a">
 <title>AX12 TAC</title>
 <link rel="icon" href="/icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="manifest" href="/manifest.json">
 <style>
+/* ── Reset ─────────────────────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'Courier New',monospace;font-size:14px;overflow-x:hidden}
+html,body{
+  width:100%;height:100%;
+  background:#08090a;color:#e4e4e7;
+  font-family:-apple-system,'Inter','Segoe UI',system-ui,sans-serif;
+  font-size:14px;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
 
-/* Header */
-.hdr{background:#0f0f0f;padding:12px 16px;border-bottom:1px solid #1a3a1a;position:sticky;top:0;z-index:10}
+/* ── Header ────────────────────────────────────────────────────── */
+.hdr{
+  background:linear-gradient(180deg,#0f1114 0%,#0c0d10 100%);
+  padding:14px 16px;
+  border-bottom:1px solid #1a1d23;
+  box-shadow:0 1px 0 rgba(0,212,170,0.05);
+  position:sticky;top:0;z-index:10;
+}
 .hdr-row{display:flex;justify-content:space-between;align-items:center}
-.logo{font-size:13px;font-weight:700;color:#4a4;letter-spacing:3px}
-.hdr-right{display:flex;align-items:center;gap:12px}
-.stat{font-size:10px;color:#3a3;letter-spacing:1px}
-.gear{font-size:16px;color:#3a3;cursor:pointer;padding:4px}
-.gear:hover{color:#6d6}
+.logo{font-size:13px;font-weight:600;letter-spacing:5px;display:flex;align-items:center;gap:1px}
+.logo-ax12{color:#00d4aa}
+.logo-sep{color:#3f3f46;margin:0 2px}
+.logo-tac{color:#3f3f46}
+.logo-tools{color:#e4e4e7}
+.hdr-right{display:flex;align-items:center;gap:14px}
+.status-indicators{display:flex;align-items:center;gap:10px}
+.status-dot{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:1px;color:#71717a;text-transform:uppercase}
+.status-dot .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#3f3f46;
+  flex-shrink:0;
+}
+.status-dot .dot.green{background:#00d4aa;box-shadow:0 0 4px rgba(0,212,170,0.4)}
+.status-dot .dot.amber{background:#f59e0b;box-shadow:0 0 4px rgba(245,158,11,0.4)}
+.status-dot .dot.red{background:#ef4444;box-shadow:0 0 4px rgba(239,68,68,0.4)}
+.status-dot .dot.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:0.6}50%{opacity:1}}
+.stat-batt{font-size:10px;color:#71717a;font-weight:600;letter-spacing:1px;font-variant-numeric:tabular-nums}
+.hdr-nav{display:flex;align-items:center;gap:6px}
+.hdr-link{
+  font-size:10px;color:#71717a;letter-spacing:1px;font-weight:600;
+  cursor:pointer;padding:6px 8px;border-radius:4px;
+  border:1px solid transparent;
+  transition:color 0.1s,border-color 0.1s;
+}
+.hdr-link:active{color:#e4e4e7;border-color:#1a1d23}
 
-/* Main content */
-.wrap{padding:12px 12px 80px;max-width:480px;margin:0 auto}
+/* ── Main content ──────────────────────────────────────────────── */
+.wrap{padding:14px 14px 80px;max-width:480px;margin:0 auto}
 
-/* Categories */
-.cat{margin-bottom:14px}
-.cat-hdr{font-size:10px;font-weight:700;color:#3a3;letter-spacing:2px;padding:4px 8px;margin-bottom:6px;border-left:2px solid #2a4a2a;background:rgba(42,74,42,0.1)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+/* ── Categories ────────────────────────────────────────────────── */
+.cat{margin-bottom:16px}
+.cat-hdr{
+  font-size:10px;font-weight:600;color:#71717a;
+  letter-spacing:3px;padding:6px 10px;margin-bottom:8px;
+  border-left:2px solid #00d4aa;
+  text-transform:uppercase;
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
-/* Buttons */
-.btn{background:#111;border:1px solid #1a3a1a;color:#6c6;padding:14px 10px;border-radius:3px;font-family:inherit;font-size:12px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;transition:background 0.1s,border-color 0.1s}
-.btn:active{background:#1a3a1a;border-color:#3a6a3a}
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn{
+  background:#0f1114;
+  border:1px solid #1a1d23;
+  color:#e4e4e7;
+  padding:14px 12px;border-radius:6px;
+  font-family:inherit;font-size:12px;cursor:pointer;
+  text-align:center;display:flex;flex-direction:column;
+  align-items:center;gap:4px;min-height:56px;
+  transition:border-color 0.1s,box-shadow 0.1s;
+}
+.btn:active{
+  background:#141619;
+  border-color:#00d4aa;
+  box-shadow:0 0 0 1px rgba(0,212,170,0.15);
+}
 .btn.disabled{opacity:0.3;pointer-events:none}
-.btn-label{font-weight:700;letter-spacing:1px}
-.btn-desc{font-size:9px;color:#3a3;letter-spacing:0.5px}
+.btn-label{font-weight:700;letter-spacing:1.5px;font-size:12px}
+.btn-desc{font-size:9px;color:#71717a;letter-spacing:0.3px;line-height:1.3}
 
-/* Toast notification for errors */
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#3a1a1a;border:1px solid #6a2a2a;color:#f88;padding:12px 20px;border-radius:4px;font-size:12px;z-index:200;display:none;max-width:90%;text-align:center;letter-spacing:0.5px}
-.toast.visible{display:block;animation:fadeout 3s forwards}
-@keyframes fadeout{0%,70%{opacity:1}100%{opacity:0}}
+/* ── Toast ─────────────────────────────────────────────────────── */
+.toast{
+  position:fixed;top:-60px;left:50%;transform:translateX(-50%);
+  background:#0f1114;
+  border:1px solid #ef4444;
+  color:#fca5a5;
+  padding:12px 20px;border-radius:6px;
+  font-size:12px;z-index:200;max-width:90%;text-align:center;
+  letter-spacing:0.3px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.5);
+  transition:top 0.2s ease-out;
+}
+.toast.visible{top:20px}
+.toast.fade-out{top:-60px;transition:top 0.3s ease-in}
 
-/* Loading spinner */
-.loading{display:none;padding:40px;text-align:center;color:#3a3;font-size:11px;letter-spacing:2px}
+/* ── Loading spinner ───────────────────────────────────────────── */
+.loading{display:none;padding:40px;text-align:center;color:#71717a;font-size:11px;letter-spacing:2px}
 .loading.active{display:block}
-.loading::before{content:'';display:block;width:24px;height:24px;border:2px solid #1a3a1a;border-top-color:#4a4;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite}
+.loading::before{
+  content:'';display:block;width:24px;height:24px;
+  border:2px solid #1a1d23;border-top-color:#00d4aa;
+  border-radius:50%;margin:0 auto 12px;
+  animation:spin 0.8s linear infinite;
+}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Output view (full screen takeover) */
-.output-view{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a0a;z-index:100;flex-direction:column}
-.output-view.active{display:flex}
-.out-hdr{background:#0f0f0f;padding:12px 16px;border-bottom:1px solid #1a3a1a;display:flex;justify-content:space-between;align-items:center}
-.out-title{font-size:12px;color:#4a4;letter-spacing:2px;font-weight:700}
-.out-status{font-size:10px;padding:3px 8px;border-radius:2px;letter-spacing:1px}
-.out-status.running{color:#4f4;background:rgba(79,255,79,0.1);border:1px solid #2a4a2a}
-.out-status.done{color:#6c6;background:rgba(108,204,108,0.05);border:1px solid #1a3a1a}
-.out-status.error{color:#c66;background:rgba(204,102,102,0.1);border:1px solid #4a2a2a}
-.out-status.preflight-fail{color:#ca3;background:rgba(204,170,51,0.1);border:1px solid #4a3a1a}
-.out-body{flex:1;overflow-y:auto;padding:10px 12px;font-size:11px;line-height:1.6;white-space:pre-wrap;word-break:break-all;color:#4a4}
-.out-body .stderr{color:#ca3}
-.out-buttons{padding:10px 12px;display:flex;gap:8px;background:#0f0f0f;border-top:1px solid #1a3a1a}
-.out-btn{flex:1;padding:12px;border-radius:3px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;text-align:center;border:1px solid}
-.out-btn.stop{background:#2a1a1a;border-color:#4a2a2a;color:#c66}
-.out-btn.stop:active{background:#3a2a2a}
-.out-btn.stop.force{background:#4a1a1a;border-color:#6a2a2a;color:#f66}
-.out-btn.back{background:#1a2a1a;border-color:#2a4a2a;color:#6c6}
-.out-btn.back:active{background:#2a3a2a}
+/* ── Output view (full screen takeover) ────────────────────────── */
+.output-view{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:#08090a;z-index:100;
+  flex-direction:column;
+  transform:translateY(100%);opacity:0;
+  transition:transform 0.2s ease-out,opacity 0.15s ease-out;
+  display:flex;
+}
+.output-view.active{transform:translateY(0);opacity:1}
+.out-hdr{
+  background:linear-gradient(180deg,#0f1114 0%,#0c0d10 100%);
+  padding:14px 16px;
+  border-bottom:1px solid #1a1d23;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.out-title{font-size:12px;color:#e4e4e7;letter-spacing:3px;font-weight:600;display:flex;align-items:center;gap:8px}
+.out-title .run-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#00d4aa;
+  animation:pulse 2s ease-in-out infinite;
+  flex-shrink:0;
+}
+.out-title .run-dot.stopped{background:#3f3f46;animation:none}
+.out-status{
+  font-size:10px;padding:4px 10px;border-radius:4px;
+  letter-spacing:1px;font-weight:600;
+}
+.out-status.running{color:#00d4aa;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2)}
+.out-status.done{color:#71717a;background:rgba(113,113,122,0.08);border:1px solid #1a1d23}
+.out-status.error{color:#ef4444;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2)}
+.out-status.preflight-fail{color:#f59e0b;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2)}
+.out-body{
+  flex:1;overflow-y:auto;padding:12px 14px;
+  font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+  font-size:11px;line-height:1.7;
+  white-space:pre-wrap;word-break:break-all;
+  color:#a1a1aa;
+  background:#06070a;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.3);
+  scroll-behavior:smooth;
+}
+.out-body .stderr{color:#f59e0b}
+.out-buttons{
+  padding:10px 14px;display:flex;gap:8px;
+  background:linear-gradient(180deg,#0f1114 0%,#0c0d10 100%);
+  border-top:1px solid #1a1d23;
+}
+.out-btn{
+  flex:1;padding:14px;border-radius:6px;
+  font-family:inherit;font-size:12px;font-weight:700;
+  letter-spacing:1.5px;cursor:pointer;text-align:center;
+  transition:border-color 0.1s,box-shadow 0.1s;
+}
+.out-btn.stop{background:#0f1114;border:1px solid rgba(239,68,68,0.3);color:#ef4444}
+.out-btn.stop:active{background:#1a0a0a;border-color:#ef4444;box-shadow:0 0 0 1px rgba(239,68,68,0.15)}
+.out-btn.stop.force{background:#1a0505;border-color:#ef4444;color:#fca5a5}
+.out-btn.back{background:#0f1114;border:1px solid #1a1d23;color:#71717a}
+.out-btn.back:active{background:#141619;border-color:#3f3f46}
 
-/* Settings view */
-.settings-view{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a0a;z-index:100;flex-direction:column}
-.settings-view.active{display:flex}
-.settings-body{flex:1;overflow-y:auto;padding:12px}
-.settings-cat{margin-bottom:16px;background:#0f0f0f;border:1px solid #1a3a1a;border-radius:4px;padding:10px}
-.settings-cat-name{font-size:11px;color:#3a3;letter-spacing:2px;font-weight:700;margin-bottom:8px}
-.settings-tool{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #111}
+/* ── Settings view ─────────────────────────────────────────────── */
+.settings-view{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:#08090a;z-index:100;
+  flex-direction:column;
+  transform:translateY(100%);opacity:0;
+  transition:transform 0.2s ease-out,opacity 0.15s ease-out;
+  display:flex;
+}
+.settings-view.active{transform:translateY(0);opacity:1}
+.settings-body{flex:1;overflow-y:auto;padding:14px}
+.settings-cat{
+  margin-bottom:16px;background:#0f1114;
+  border:1px solid #1a1d23;border-radius:6px;padding:12px;
+}
+.settings-cat-name{font-size:10px;color:#71717a;letter-spacing:3px;font-weight:600;margin-bottom:10px;text-transform:uppercase}
+.settings-tool{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1a1d23}
 .settings-tool:last-child{border-bottom:none}
-.settings-tool-info{flex:1;font-size:11px;color:#6c6}
-.settings-tool-cmd{font-size:9px;color:#333;margin-top:2px}
-.settings-btn-sm{background:#111;border:1px solid #1a3a1a;color:#3a3;padding:4px 8px;border-radius:2px;font-family:inherit;font-size:10px;cursor:pointer}
-.settings-btn-sm:active{background:#1a3a1a}
-.settings-btn-sm.del{border-color:#3a1a1a;color:#a44}
+.settings-tool-info{flex:1;font-size:12px;color:#e4e4e7}
+.settings-tool-cmd{
+  font-size:9px;color:#3f3f46;margin-top:3px;
+  font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+.settings-btn-sm{
+  background:#0f1114;border:1px solid #1a1d23;color:#71717a;
+  padding:6px 10px;border-radius:4px;
+  font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;
+  transition:border-color 0.1s;
+}
+.settings-btn-sm:active{border-color:#3f3f46}
+.settings-btn-sm.del{border-color:rgba(239,68,68,0.2);color:#ef4444}
+.settings-btn-sm.del:active{border-color:#ef4444}
 
-/* Add tool form */
-.add-form{background:#0f0f0f;border:1px solid #1a3a1a;border-radius:4px;padding:10px;margin-top:12px}
-.add-form input,.add-form select{background:#111;border:1px solid #1a3a1a;color:#6c6;padding:6px 8px;font-family:inherit;font-size:11px;border-radius:2px;width:100%;margin-bottom:6px}
-.add-form input::placeholder{color:#2a4a2a}
+/* ── Add tool form ─────────────────────────────────────────────── */
+.add-form{
+  background:#0f1114;border:1px solid #1a1d23;
+  border-radius:6px;padding:12px;margin-top:14px;
+}
+.add-form input,.add-form select{
+  background:#08090a;border:1px solid #1a1d23;color:#e4e4e7;
+  padding:8px 10px;font-family:inherit;font-size:12px;
+  border-radius:4px;width:100%;margin-bottom:8px;
+  transition:border-color 0.1s;
+  outline:none;
+}
+.add-form input:focus,.add-form select:focus{border-color:#00d4aa;box-shadow:0 0 0 1px rgba(0,212,170,0.1)}
+.add-form input::placeholder{color:#3f3f46}
 </style>
 </head>
 <body>
@@ -585,11 +719,23 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
 <div id="main-view">
   <div class="hdr">
     <div class="hdr-row">
-      <div class="logo">AX12 TAC TOOLS</div>
+      <div class="logo">
+        <span class="logo-ax12">AX12</span>
+        <span class="logo-sep">/</span>
+        <span class="logo-tac">TAC</span>
+        <span class="logo-sep">&nbsp;</span>
+        <span class="logo-tools">TOOLS</span>
+      </div>
       <div class="hdr-right">
-        <div class="stat">{{BATT}} &bull; {{UPTIME}}</div>
-        <div class="gear" onclick="location.href='/setup'" style="font-size:11px;letter-spacing:1px">SETUP</div>
-        <div class="gear" onclick="showSettings()">&#9881;</div>
+        <div class="status-indicators">
+          <div class="status-dot" id="ind-gps"><span class="dot" id="dot-gps"></span>GPS</div>
+          <div class="status-dot" id="ind-ser"><span class="dot" id="dot-ser"></span>SER</div>
+          <div class="stat-batt" id="stat-batt">{{BATT}}</div>
+        </div>
+        <div class="hdr-nav">
+          <div class="hdr-link" onclick="location.href='/setup'">SETUP</div>
+          <div class="hdr-link" onclick="showSettings()">&#9881;</div>
+        </div>
       </div>
     </div>
   </div>
@@ -601,7 +747,7 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
 <!-- OUTPUT VIEW -->
 <div class="output-view" id="output-view">
   <div class="out-hdr">
-    <div class="out-title" id="out-title">TOOL</div>
+    <div class="out-title"><span class="run-dot" id="run-dot"></span><span id="out-title-text">TOOL</span></div>
     <div class="out-status running" id="out-status">RUNNING</div>
   </div>
   <div class="loading" id="loading">STARTING...</div>
@@ -615,12 +761,12 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
 <!-- SETTINGS VIEW -->
 <div class="settings-view" id="settings-view">
   <div class="out-hdr">
-    <div class="out-title">SETTINGS</div>
+    <div class="out-title"><span id="settings-title-text">SETTINGS</span></div>
     <div class="out-status done" style="cursor:pointer" onclick="hideSettings()">CLOSE</div>
   </div>
   <div class="settings-body" id="settings-body"></div>
   <div class="out-buttons">
-    <button class="out-btn back" onclick="saveSettings()">SAVE</button>
+    <button class="out-btn back" onclick="saveSettings()" style="border-color:rgba(0,212,170,0.3);color:#00d4aa">SAVE</button>
     <button class="out-btn back" onclick="hideSettings()">CANCEL</button>
   </div>
 </div>
@@ -631,16 +777,20 @@ let outputIdx = 0;
 let stopping = false;
 let stopTime = 0;
 let toolRunning = false;
+let statusTimer = null;
 
+/* ── Toast ─────────────────────────────────────────────────────── */
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast';
-  void t.offsetWidth; // force reflow for re-animation
+  void t.offsetWidth;
   t.className = 'toast visible';
-  setTimeout(() => { t.className = 'toast'; }, 3000);
+  setTimeout(() => { t.className = 'toast fade-out'; }, 3000);
+  setTimeout(() => { t.className = 'toast'; }, 3300);
 }
 
+/* ── Button state ──────────────────────────────────────────────── */
 function setButtonsDisabled(disabled) {
   document.querySelectorAll('.btn').forEach(b => {
     if (disabled) b.classList.add('disabled');
@@ -648,6 +798,29 @@ function setButtonsDisabled(disabled) {
   });
 }
 
+/* ── Status polling ────────────────────────────────────────────── */
+function pollStatus() {
+  fetch('/api/status').then(r => r.json()).then(d => {
+    const dotGps = document.getElementById('dot-gps');
+    const dotSer = document.getElementById('dot-ser');
+    const battEl = document.getElementById('stat-batt');
+
+    if (d.gps) { dotGps.className = 'dot green pulse'; }
+    else { dotGps.className = 'dot'; }
+
+    if (d.serial_ttyS1) { dotSer.className = 'dot green'; }
+    else if (d.serial_ttyS0) { dotSer.className = 'dot amber'; }
+    else { dotSer.className = 'dot'; }
+
+    if (d.battery && d.battery !== '?') { battEl.textContent = d.battery; }
+  }).catch(() => {});
+  statusTimer = setTimeout(pollStatus, 10000);
+}
+
+/* Start status polling on load */
+pollStatus();
+
+/* ── Run tool ──────────────────────────────────────────────────── */
 function runTool(shortcut) {
   if (toolRunning) {
     showToast('A tool is already running. Stop it first.');
@@ -655,7 +828,8 @@ function runTool(shortcut) {
   }
 
   const body = document.getElementById('out-body');
-  const title = document.getElementById('out-title');
+  const title = document.getElementById('out-title-text');
+  const runDot = document.getElementById('run-dot');
   const status = document.getElementById('out-status');
   const stopBtn = document.getElementById('stop-btn');
   const loading = document.getElementById('loading');
@@ -668,6 +842,7 @@ function runTool(shortcut) {
   stopBtn.className = 'out-btn stop';
   stopBtn.style.display = '';
   title.textContent = shortcut.toUpperCase();
+  runDot.className = 'run-dot';
   status.textContent = 'STARTING';
   status.className = 'out-status running';
   loading.className = 'loading active';
@@ -686,9 +861,10 @@ function runTool(shortcut) {
     if (!data.ok) {
       toolRunning = false;
       setButtonsDisabled(false);
+      runDot.className = 'run-dot stopped';
       status.textContent = data.preflight ? 'PRE-FLIGHT FAIL' : 'ERROR';
       status.className = 'out-status ' + (data.preflight ? 'preflight-fail' : 'error');
-      body.innerHTML = '<div style="color:#ca3;white-space:pre-wrap">' + escHtml(data.error) + '</div>';
+      body.innerHTML = '<div style="color:#f59e0b;white-space:pre-wrap">' + escHtml(data.error) + '</div>';
       stopBtn.style.display = 'none';
       return;
     }
@@ -700,13 +876,15 @@ function runTool(shortcut) {
     loading.className = 'loading';
     toolRunning = false;
     setButtonsDisabled(false);
+    runDot.className = 'run-dot stopped';
     status.textContent = 'ERROR';
     status.className = 'out-status error';
-    body.innerHTML = '<div style="color:#c66">' + escHtml(String(e)) + '</div>';
+    body.innerHTML = '<div style="color:#ef4444">' + escHtml(String(e)) + '</div>';
     stopBtn.style.display = 'none';
   });
 }
 
+/* ── Poll output ───────────────────────────────────────────────── */
 function pollOutput() {
   if (pollTimer) clearTimeout(pollTimer);
   fetch('/api/output?since=' + outputIdx)
@@ -716,12 +894,13 @@ function pollOutput() {
       const status = document.getElementById('out-status');
       const stopBtn = document.getElementById('stop-btn');
       const loading = document.getElementById('loading');
+      const runDot = document.getElementById('run-dot');
 
-      // Hide loading spinner on first output
       if (data.lines && data.lines.length > 0) {
         loading.className = 'loading';
         for (const line of data.lines) {
-          body.innerHTML += line;
+          /* Bug fix: use insertAdjacentHTML instead of innerHTML += for DOM performance */
+          body.insertAdjacentHTML('beforeend', line);
         }
         body.scrollTop = body.scrollHeight;
       }
@@ -731,6 +910,7 @@ function pollOutput() {
         loading.className = 'loading';
         toolRunning = false;
         setButtonsDisabled(false);
+        runDot.className = 'run-dot stopped';
         if (data.exit_code === 0 || data.exit_code === null) {
           status.textContent = 'DONE';
           status.className = 'out-status done';
@@ -742,7 +922,6 @@ function pollOutput() {
         return;
       }
 
-      // Escalate to force kill after 3s
       if (stopping && (Date.now() - stopTime > 3000)) {
         stopBtn.textContent = 'FORCE KILL';
         stopBtn.className = 'out-btn stop force';
@@ -755,6 +934,7 @@ function pollOutput() {
     });
 }
 
+/* ── Stop tool ─────────────────────────────────────────────────── */
 function stopTool() {
   const stopBtn = document.getElementById('stop-btn');
   const force = stopBtn.textContent === 'FORCE KILL';
@@ -775,7 +955,6 @@ function stopTool() {
 function goBack() {
   if (pollTimer) clearTimeout(pollTimer);
   document.getElementById('output-view').classList.remove('active');
-  // If tool is still running, stop it in the background
   if (toolRunning) {
     fetch('/api/stop', {
       method: 'POST',
@@ -788,6 +967,7 @@ function goBack() {
   }
 }
 
+/* ── Settings ──────────────────────────────────────────────────── */
 function showSettings() {
   fetch('/api/config').then(r => r.json()).then(renderSettings);
   document.getElementById('settings-view').classList.add('active');
@@ -825,7 +1005,7 @@ function renderSettings(config) {
   html += '<input id="add-desc" placeholder="Description">';
   html += '<input id="add-cmd" placeholder="Command (e.g. su 0 python3 tools/my_tool.py)">';
   html += '<input id="add-shortcut" placeholder="Shortcut (e.g. mytool)">';
-  html += '<button class="settings-btn-sm" onclick="addTool()">ADD</button>';
+  html += '<button class="settings-btn-sm" style="border-color:rgba(0,212,170,0.3);color:#00d4aa" onclick="addTool()">ADD</button>';
   html += '</div>';
   body.innerHTML = html;
 }
@@ -886,7 +1066,123 @@ function escHtml(s) {
 </html>"""
 
 
-# ── HTTP Server ───────────────────────────────────────────────────────────────
+# ── Setup wizard page ────────────────────────────────────────────────────────
+
+SETUP_HTML = r"""<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#08090a">
+<title>AX12 SETUP</title><link rel="icon" href="/icon.png" type="image/png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  background:#08090a;color:#e4e4e7;
+  font-family:-apple-system,'Inter','Segoe UI',system-ui,sans-serif;
+  font-size:14px;-webkit-font-smoothing:antialiased;
+}
+.hdr{
+  background:linear-gradient(180deg,#0f1114 0%,#0c0d10 100%);
+  padding:14px 16px;
+  border-bottom:1px solid #1a1d23;
+  box-shadow:0 1px 0 rgba(0,212,170,0.05);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.logo{font-size:13px;font-weight:600;color:#e4e4e7;letter-spacing:5px}
+.logo span{color:#00d4aa}
+.back-link{
+  color:#71717a;font-size:10px;cursor:pointer;padding:6px 8px;
+  letter-spacing:1px;font-weight:600;border-radius:4px;
+  border:1px solid transparent;transition:color 0.1s,border-color 0.1s;
+}
+.back-link:active{color:#e4e4e7;border-color:#1a1d23}
+.wrap{padding:16px;max-width:480px;margin:0 auto}
+.step{
+  background:#0f1114;border:1px solid #1a1d23;
+  border-radius:6px;padding:14px;margin-bottom:12px;
+}
+.step-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.step-title{font-size:11px;font-weight:600;color:#e4e4e7;letter-spacing:2px}
+.step-status{font-size:9px;padding:3px 10px;border-radius:4px;letter-spacing:1px;font-weight:600}
+.step-status.ok{color:#00d4aa;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.2)}
+.step-status.fail{color:#ef4444;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2)}
+.step-status.manual{color:#f59e0b;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2)}
+.step-status.loading{color:#71717a;background:rgba(113,113,122,0.08);border:1px solid #1a1d23}
+.step-body{font-size:12px;color:#a1a1aa;line-height:1.6}
+.step-body b{color:#e4e4e7}
+.step-body code{
+  background:#08090a;padding:2px 6px;border-radius:3px;
+  color:#00d4aa;font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+  font-size:11px;
+}
+.step-body a{color:#3b82f6;text-decoration:none}
+.step-body a:active{color:#60a5fa}
+.step-btn{
+  background:#0f1114;border:1px solid rgba(0,212,170,0.3);
+  color:#00d4aa;padding:10px 18px;border-radius:4px;
+  font-family:inherit;font-size:11px;font-weight:600;
+  letter-spacing:1px;cursor:pointer;margin-top:10px;
+  transition:border-color 0.1s;
+}
+.step-btn:active{border-color:#00d4aa;background:#141619}
+.step-btn.disabled{opacity:0.3;pointer-events:none}
+.params{
+  background:#08090a;border:1px solid #1a1d23;border-radius:4px;
+  padding:10px;margin:10px 0;
+  font-family:'SF Mono','Cascadia Code','Consolas',monospace;
+  font-size:11px;line-height:2;
+}
+.params .k{color:#f59e0b}.params .v{color:#00d4aa}
+.note{font-size:11px;color:#71717a;margin-top:8px;line-height:1.5}
+</style></head><body>
+<div class="hdr">
+  <div class="logo"><span>AX12</span> SETUP</div>
+  <div class="back-link" onclick="location.href='/'">BACK</div>
+</div>
+<div class="wrap">
+  <div class="step"><div class="step-hdr"><div class="step-title">1. ROOT ACCESS</div><div class="step-status loading" id="s1">CHECKING</div></div><div class="step-body">Factory root via su 0.</div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">2. INSTALL ATAK</div><div class="step-status loading" id="s2">CHECKING</div></div><div class="step-body" id="b2">Checking...</div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">3. ATAK NETWORK INPUT</div><div class="step-status loading" id="s3">CHECKING</div></div><div class="step-body" id="b3">Checking...</div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">4. ELRS MAVLINK MODE</div><div class="step-status manual" id="s4">MANUAL</div></div>
+  <div class="step-body">Open Flyshark on the AX12:<br><br><b>System Menu &gt; ELRS Lua &gt; Link Mode &gt; MAVLink</b><br><br>Tap <b>Save &amp; Reboot</b>. Then power cycle the receiver on the drone.<br><div class="note">Both TX and RX need ELRS 3.5+. You can switch back to CRSF anytime for normal flying.</div></div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">5. FLIGHT CONTROLLER</div><div class="step-status manual" id="s5">MANUAL</div></div>
+  <div class="step-body">Connect to FC with Mission Planner or QGC. Set on the UART where ELRS RX is connected:<div class="params"><span class="k">SERIALn_PROTOCOL</span> = <span class="v">2</span> (MAVLink 2)<br><span class="k">SERIALn_BAUD</span> = <span class="v">460</span> (460800)<br><span class="k">SRn_POSITION</span> = <span class="v">1</span><br><span class="k">SRn_EXTRA1</span> = <span class="v">1</span><br><span class="k">SRn_EXTRA2</span> = <span class="v">1</span><br><span class="k">SRn_EXT_STAT</span> = <span class="v">1</span></div>Reboot FC after saving. RX must be ESP-based (RP1/RP2/RP3, EP1/EP2).<div class="note">Only needs to be done once per drone.</div></div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">6. FLY</div><div class="step-status ok" id="s6">READY</div></div>
+  <div class="step-body">Power on drone, wait for GPS lock, tap <b>ATAK BRIDGE</b>, switch to ATAK. Your drone is on the map.<br><br><button class="step-btn" onclick="location.href='/'">BACK TO TOOLS</button></div></div>
+</div>
+<script>
+fetch('/api/setup-check').then(r=>r.json()).then(d=>{
+  const s1=document.getElementById('s1');
+  if(d.root.ok){s1.textContent='OK';s1.className='step-status ok'}else{s1.textContent='FAIL';s1.className='step-status fail'}
+
+  const s2=document.getElementById('s2'),b2=document.getElementById('b2');
+  if(d.atak_installed.ok){s2.textContent='INSTALLED';s2.className='step-status ok';b2.innerHTML=d.atak_installed.detail}
+  else{s2.textContent='NOT FOUND';s2.className='step-status fail';b2.innerHTML='<b>IMPORTANT:</b> The AX12 runs Android 9. ATAK 5.x requires Android 10+. You need <b>ATAK-CIV 4.10</b>.<br><br>Download:<br>&bull; <a href="https://apkpure.com/atak-civ-civil-use/com.atakmap.app.civ/versions" target="_blank">APKPure — ATAK old versions</a> (get 4.10.0)<br>&bull; <a href="https://files.civtak.org" target="_blank">files.civtak.org</a> (official repo)<br>&bull; <a href="https://github.com/deptofdefense/AndroidTacticalAssaultKit-CIV/releases" target="_blank">GitHub releases</a> (DoD source)<br><br>Install the APK, open ATAK once, then come back.<br><br><button class="step-btn" onclick="location.reload()">CHECK AGAIN</button>'}
+
+  const s3=document.getElementById('s3'),b3=document.getElementById('b3');
+  if(d.atak_udp.ok){s3.textContent='CONFIGURED';s3.className='step-status ok';b3.innerHTML='UDP 4242 input ready.'}
+  else if(!d.atak_installed.ok){s3.textContent='WAITING';s3.className='step-status manual';b3.innerHTML='Install ATAK first (step 2).'}
+  else{s3.textContent='NOT SET';s3.className='step-status fail';b3.innerHTML='ATAK needs UDP input on port 4242.<br><br><button class="step-btn" id="cfg-btn" onclick="cfgAtak()">AUTO-CONFIGURE</button><div class="note" id="cfg-msg"></div><br><div class="note">If auto-config fails: ATAK &gt; Settings &gt; Network Preferences &gt; Add &gt; UDP, port 4242, address 0.0.0.0</div>'}
+}).catch(()=>{document.getElementById('s1').textContent='ERROR'});
+
+function cfgAtak(){
+  const b=document.getElementById('cfg-btn'),m=document.getElementById('cfg-msg');
+  b.classList.add('disabled');b.textContent='CONFIGURING...';
+  fetch('/api/setup-configure-atak',{method:'POST'}).then(r=>r.json()).then(d=>{
+    if(d.ok){m.innerHTML='<span style="color:#00d4aa">'+d.message+'</span>';document.getElementById('s3').textContent='CONFIGURED';document.getElementById('s3').className='step-status ok'}
+    else{m.innerHTML='<span style="color:#ef4444">'+d.message+'</span>';b.classList.remove('disabled');b.textContent='RETRY'}
+  }).catch(e=>{m.innerHTML='<span style="color:#ef4444">'+e+'</span>';b.classList.remove('disabled');b.textContent='RETRY'});
+}
+</script></body></html>"""
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 9. HTTP HANDLER
+# ══════════════════════════════════════════════════════════════════════════════
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -920,7 +1216,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if "?" in self.path:
                 for part in self.path.split("?")[1].split("&"):
                     if part.startswith("since="):
-                        since = int(part.split("=")[1])
+                        # Bug fix: wrap in try/except for malformed values
+                        try:
+                            since = int(part.split("=")[1])
+                        except (ValueError, IndexError):
+                            since = 0
             lines, new_idx, done, exit_code = get_output_since(since)
             html_lines = []
             for kind, text in lines:
@@ -934,6 +1234,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif self.path == "/api/config":
             self._json(load_config())
+
+        elif self.path == "/api/status":
+            self._json(get_full_status())
 
         elif self.path == "/setup":
             self._html(SETUP_HTML)
@@ -955,8 +1258,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "short_name": "TAC",
                 "start_url": "/",
                 "display": "standalone",
-                "background_color": "#0a0a0a",
-                "theme_color": "#0a0a0a",
+                "background_color": "#08090a",
+                "theme_color": "#08090a",
                 "icons": [{"src": "/icon.png", "sizes": "192x192", "type": "image/png"}]
             }
             self._json(manifest)
@@ -1050,7 +1353,9 @@ class ThreadedServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# 10. MAIN / SERVER
+# ══════════════════════════════════════════════════════════════════════════════
 
 def main():
     port = PORT
@@ -1062,18 +1367,20 @@ def main():
                 port = int(arg.split("=")[1])
 
     # Check if another server is actively listening
-    import socket
+    # Bug fix: close the socket in a finally block to prevent leaks
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.connect(("127.0.0.1", port))
-        sock.close()
         # Connection succeeded — something is already serving
         print(f"[tac-web] Port {port} already in use — server may already be running")
         sys.exit(0)
     except (ConnectionRefusedError, OSError):
         pass  # Nothing listening — safe to start
+    finally:
+        sock.close()
 
-    server = ThreadedServer(("0.0.0.0", port), Handler)
+    # Bug fix: bind to 127.0.0.1 (localhost only), not 0.0.0.0
+    server = ThreadedServer(("127.0.0.1", port), Handler)
     print(f"[tac-web] Serving on http://localhost:{port}")
     print(f"[tac-web] Bookmark this URL to your home screen")
     print(f"[tac-web] Ctrl+C to stop")
