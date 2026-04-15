@@ -21,7 +21,13 @@ import sys
 import threading
 import time
 
+import base64
+
 PORT = 8080
+
+# 192x192 tactical crosshair icon (base64 PNG)
+ICON_B64 = "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"
+ICON_PNG = base64.b64decode(ICON_B64)
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON3 = "/data/data/com.termux/files/usr/bin/python3"
 LUA_SRC = os.path.join(REPO_DIR, "lua")
@@ -342,6 +348,9 @@ PAGE_HTML = r"""<!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>AX12 TAC</title>
+<link rel="icon" href="/icon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="manifest" href="/manifest.json">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'Courier New',monospace;font-size:14px;overflow-x:hidden}
@@ -714,6 +723,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif self.path == "/api/config":
             self._json(load_config())
+
+        elif self.path == "/icon.png":
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", len(ICON_PNG))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(ICON_PNG)
+
+        elif self.path == "/manifest.json":
+            manifest = {
+                "name": "AX12 TAC TOOLS",
+                "short_name": "TAC",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#0a0a0a",
+                "theme_color": "#0a0a0a",
+                "icons": [{"src": "/icon.png", "sizes": "192x192", "type": "image/png"}]
+            }
+            self._json(manifest)
 
         else:
             self.send_error(404)
