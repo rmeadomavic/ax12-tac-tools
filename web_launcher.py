@@ -375,8 +375,20 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
 /* Buttons */
 .btn{background:#111;border:1px solid #1a3a1a;color:#6c6;padding:14px 10px;border-radius:3px;font-family:inherit;font-size:12px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;transition:background 0.1s,border-color 0.1s}
 .btn:active{background:#1a3a1a;border-color:#3a6a3a}
+.btn.disabled{opacity:0.3;pointer-events:none}
 .btn-label{font-weight:700;letter-spacing:1px}
 .btn-desc{font-size:9px;color:#3a3;letter-spacing:0.5px}
+
+/* Toast notification for errors */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#3a1a1a;border:1px solid #6a2a2a;color:#f88;padding:12px 20px;border-radius:4px;font-size:12px;z-index:200;display:none;max-width:90%;text-align:center;letter-spacing:0.5px}
+.toast.visible{display:block;animation:fadeout 3s forwards}
+@keyframes fadeout{0%,70%{opacity:1}100%{opacity:0}}
+
+/* Loading spinner */
+.loading{display:none;padding:40px;text-align:center;color:#3a3;font-size:11px;letter-spacing:2px}
+.loading.active{display:block}
+.loading::before{content:'';display:block;width:24px;height:24px;border:2px solid #1a3a1a;border-top-color:#4a4;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* Output view (full screen takeover) */
 .output-view{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0a0a;z-index:100;flex-direction:column}
@@ -420,6 +432,9 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
 </head>
 <body>
 
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
 <!-- MAIN VIEW -->
 <div id="main-view">
   <div class="hdr">
@@ -442,10 +457,11 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
     <div class="out-title" id="out-title">TOOL</div>
     <div class="out-status running" id="out-status">RUNNING</div>
   </div>
+  <div class="loading" id="loading">STARTING...</div>
   <div class="out-body" id="out-body"></div>
   <div class="out-buttons">
     <button class="out-btn stop" id="stop-btn" onclick="stopTool()">STOP</button>
-    <button class="out-btn back" onclick="goBack()">BACK</button>
+    <button class="out-btn back" id="back-btn" onclick="goBack()">BACK</button>
   </div>
 </div>
 
@@ -467,22 +483,48 @@ let pollTimer = null;
 let outputIdx = 0;
 let stopping = false;
 let stopTime = 0;
-let forceTimer = null;
+let toolRunning = false;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast';
+  void t.offsetWidth; // force reflow for re-animation
+  t.className = 'toast visible';
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+
+function setButtonsDisabled(disabled) {
+  document.querySelectorAll('.btn').forEach(b => {
+    if (disabled) b.classList.add('disabled');
+    else b.classList.remove('disabled');
+  });
+}
 
 function runTool(shortcut) {
+  if (toolRunning) {
+    showToast('A tool is already running. Stop it first.');
+    return;
+  }
+
   const body = document.getElementById('out-body');
   const title = document.getElementById('out-title');
   const status = document.getElementById('out-status');
   const stopBtn = document.getElementById('stop-btn');
+  const loading = document.getElementById('loading');
 
   body.innerHTML = '';
   outputIdx = 0;
   stopping = false;
+  toolRunning = true;
   stopBtn.textContent = 'STOP';
   stopBtn.className = 'out-btn stop';
+  stopBtn.style.display = '';
   title.textContent = shortcut.toUpperCase();
   status.textContent = 'STARTING';
   status.className = 'out-status running';
+  loading.className = 'loading active';
+  setButtonsDisabled(true);
 
   document.getElementById('output-view').classList.add('active');
 
@@ -493,22 +535,28 @@ function runTool(shortcut) {
   })
   .then(r => r.json())
   .then(data => {
+    loading.className = 'loading';
     if (!data.ok) {
+      toolRunning = false;
+      setButtonsDisabled(false);
       status.textContent = data.preflight ? 'PRE-FLIGHT FAIL' : 'ERROR';
       status.className = 'out-status ' + (data.preflight ? 'preflight-fail' : 'error');
-      body.innerHTML = '<div style="color:#ca3">' + escHtml(data.error) + '</div>';
+      body.innerHTML = '<div style="color:#ca3;white-space:pre-wrap">' + escHtml(data.error) + '</div>';
       stopBtn.style.display = 'none';
       return;
     }
     title.textContent = data.label || shortcut.toUpperCase();
     status.textContent = 'RUNNING';
-    stopBtn.style.display = '';
     pollOutput();
   })
   .catch(e => {
+    loading.className = 'loading';
+    toolRunning = false;
+    setButtonsDisabled(false);
     status.textContent = 'ERROR';
     status.className = 'out-status error';
     body.innerHTML = '<div style="color:#c66">' + escHtml(String(e)) + '</div>';
+    stopBtn.style.display = 'none';
   });
 }
 
@@ -520,8 +568,11 @@ function pollOutput() {
       const body = document.getElementById('out-body');
       const status = document.getElementById('out-status');
       const stopBtn = document.getElementById('stop-btn');
+      const loading = document.getElementById('loading');
 
+      // Hide loading spinner on first output
       if (data.lines && data.lines.length > 0) {
+        loading.className = 'loading';
         for (const line of data.lines) {
           body.innerHTML += line;
         }
@@ -530,7 +581,10 @@ function pollOutput() {
       outputIdx = data.index;
 
       if (data.done) {
-        if (data.exit_code === 0) {
+        loading.className = 'loading';
+        toolRunning = false;
+        setButtonsDisabled(false);
+        if (data.exit_code === 0 || data.exit_code === null) {
           status.textContent = 'DONE';
           status.className = 'out-status done';
         } else {
@@ -538,11 +592,10 @@ function pollOutput() {
           status.className = 'out-status error';
         }
         stopBtn.style.display = 'none';
-        if (forceTimer) clearTimeout(forceTimer);
         return;
       }
 
-      // Check if stop was requested and escalate to force kill
+      // Escalate to force kill after 3s
       if (stopping && (Date.now() - stopTime > 3000)) {
         stopBtn.textContent = 'FORCE KILL';
         stopBtn.className = 'out-btn stop force';
@@ -574,8 +627,18 @@ function stopTool() {
 
 function goBack() {
   if (pollTimer) clearTimeout(pollTimer);
-  if (forceTimer) clearTimeout(forceTimer);
   document.getElementById('output-view').classList.remove('active');
+  // If tool is still running, stop it in the background
+  if (toolRunning) {
+    fetch('/api/stop', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({force: true})
+    }).finally(() => {
+      toolRunning = false;
+      setButtonsDisabled(false);
+    });
+  }
 }
 
 function showSettings() {
