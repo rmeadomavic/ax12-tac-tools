@@ -1,8 +1,6 @@
-# TAK Integration Guide
+# TAK Integration
 
-End-to-end guide for streaming vehicle position to ATAK/CivTAK and displaying a
-TAK-style HUD on the AX12 touchscreen. For a quick overview see the main README;
-this document covers every option in depth.
+Full reference for getting your drone on ATAK from the AX12. Covers both the CoT bridge (serial path) and the MAVLink bridge (WiFi path), multi-device setups, and the TAK OSD Lua script.
 
 ---
 

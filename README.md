@@ -1,127 +1,72 @@
 # AX12 Tactical Tools
 
-The AX12 runs Android. These tools put your drone on ATAK while you fly it — CoT bridge reads MAVLink off the ELRS link and feeds position/alt/heading/mode to the COP. You get live UAS tracking on the same handset you're flying with.
+Your AX12 runs Android. These tools turn it into a TAK endpoint — the CoT bridge pulls MAVLink telemetry off ELRS and puts your drone on the COP while you fly it. Same handset, same hands. 
 
-Also: TAK-style HUD overlay for the touchscreen (MGRS, compass, RSSI/LQ, mission timer), CCIP, 9-line CAS template, freq decon, preflight checklist, and a bunch of other field tools. All runs on-device in Termux, stdlib Python, no dependencies.
+There's also a TAK OSD for the touchscreen, CCIP, 9-line CAS template, freq decon, mission timer, preflight checklist, and some other stuff that's useful in the field. Everything runs on-device in Termux. No pip, no npm, no dependencies beyond what ships with Python.
 
-Install (one paste in Termux):
+## Install
+
+Open Termux, paste this:
 
 ```
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-After that, open `http://localhost:8080` in Chrome and bookmark it to your home screen. Tap the bookmark — tools are right there. The server starts automatically on boot. Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md).
+After that, open `localhost:8080` in Chrome. Bookmark it to your home screen — it acts like an app. The server starts on boot if you have Termux:Boot installed.
+
+Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md)
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)
 ![Platform: Android 9](https://img.shields.io/badge/platform-Android%209-green.svg)
 
-## How It Works
+## What's in Here
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  RadioMaster AX12  (Android 9 / Termux)                  │
-│                                                          │
-│  tools/                    lua/                          │
-│  ├─ mavlink_bridge.py      ├─ tak-osd.lua    (HUD)      │
-│  ├─ cot_bridge.py          ├─ ccip.lua       (targeting) │
-│  ├─ hydra_display.py       ├─ nineline.lua   (CAS)      │
-│  ├─ airspace_check.py      ├─ mgrs-tool.lua  (coords)   │
-│  ├─ payload_drop.py        ├─ preflight.lua  (checklist) │
-│  └─ ...                    └─ ...                        │
-└────────┬──────────────────────────┬──────────────────────┘
-         │                          │
-    ELRS Backpack WiFi         Flyshark Lua VM
-    UDP 14550 ↔ TCP 5760       720×1280 touchscreen
-         │                          │
-    ┌────▼────┐               ┌─────▼─────┐
-    │ Vehicle │               │  On-screen │
-    │ MAVLink │               │  widgets   │
-    └────┬────┘               └───────────┘
-         │
-    ┌────▼────┐
-    │  ATAK   │
-    │  (CoT)  │
-    └─────────┘
+tools/           Python tools (CoT bridge, MAVLink bridge, GPS, airspace, etc.)
+lua/             Lua scripts for the Flyshark touchscreen UI
+shortcuts/       Termux:Widget home screen shortcuts
+web_launcher.py  The web UI server
+launcher.py      CLI/TUI launcher (for SSH use)
+install.sh       One-command installer
+tools.json       Tool registry (edit to add/remove/reorder tools)
 ```
 
-## Quick Start
+### Python Tools
 
-After install, open `http://localhost:8080` in Chrome (or tap your home screen bookmark). Tools are organized by category with big buttons — tap one to run it. You can also use the command line:
+| Tool | What it does |
+|------|-------------|
+| `cot_bridge.py` | MAVLink → CoT for ATAK. The main one. |
+| `mavlink_bridge.py` | ELRS Backpack WiFi → TCP for QGC/Mission Planner |
+| `test_cot.py` | Sends a single CoT blip to verify ATAK is listening |
+| `airspace_check.py` | Offline airspace restriction briefing |
+| `payload_drop.py` | Drop point calculator |
+| `gps_tool.py` | GPS position from the MT6631 |
+| `gps_position.py` | Continuous GPS with NMEA and satellite info |
+| `rover_nav.py` | ArduRover GPS nav and geofencing |
+| `imu_tracker.py` | ICM-42607 head tracking |
+| `hydra_display.py` | AI detection telemetry client (Hydra project) |
 
-```bash
-tac atak       # start live drone tracking on ATAK
-tac mavlink    # connect QGroundControl via ELRS
-tac gps        # show current GPS position
-tac airspace   # pre-flight airspace briefing
-tac --help     # list all shortcuts
-```
+### Lua Scripts (Touchscreen)
 
-## Tools
+Installed automatically to Flyshark. Access: System Menu > Lua Scripts > Tools.
 
-| Tool | Purpose | Usage |
-|------|---------|-------|
-| `cot_bridge.py` | MAVLink-to-CoT bridge for ATAK | `su 0 python3 tools/cot_bridge.py` |
-| `test_cot.py` | CoT test sender | `python3 tools/test_cot.py` |
-| `mavlink_bridge.py` | QGC/Mission Planner bridge via ELRS Backpack | `python3 tools/mavlink_bridge.py bridge` |
-| `hydra_display.py` | AI object detection telemetry client | `python3 tools/hydra_display.py demo` |
-| `airspace_check.py` | Offline airspace restriction briefing | `python3 tools/airspace_check.py brief` |
-| `payload_drop.py` | Aerial drop point calculator | `python3 tools/payload_drop.py calc --alt 50 --speed 10` |
-| `rover_nav.py` | ArduRover GPS navigation and geofencing | `python3 tools/rover_nav.py --demo` |
-| `imu_tracker.py` | ICM-42607 IMU head tracking | `su 0 python3 tools/imu_tracker.py` |
-| `gps_tool.py` | GPS position from MT6631 GNSS | `su 0 python3 tools/gps_tool.py position` |
-| `gps_position.py` | GPS display with NMEA and satellite info | `su 0 python3 tools/gps_position.py` |
+**Tactical:** TAK OSD, CCIP targeting, 9-line CAS, MGRS converter, mission timer, preflight checklist, freq decon
 
-## Lua Scripts
+**Flight Ops:** Fixed-wing helper, wind calc, Betaflight OSD, compass, training exercises, g-force, servo test
 
-Installed automatically. Access: RadioMaster App > System Menu > Lua Scripts > Tools.
-
-### Tactical
-
-| Script | Description |
-|--------|-------------|
-| **tak-osd** | TAK-style HUD — GPS, MGRS, compass, RSSI/LQ, mission timer |
-| **ccip** | Impact point targeting — physics model, range rings, drift vector, RELEASE cue |
-| **nineline** | 9-Line CAS brief template — auto-fills target elevation and grid from GPS |
-| **mgrs-tool** | MGRS coordinate converter — WGS84 to UTM/MGRS, waypoint save, distance/bearing |
-| **mission-timer** | 6-phase timer — STARTUP / LAUNCH / TRANSIT / ON STATION / RTB / RECOVERY |
-| **preflight** | 12-item pre-flight checklist — telemetry auto-check, GO/NO-GO |
-| **freq-decon** | RF frequency deconfliction — 900/2400/5800 MHz bands, conflict detection |
-
-### Flight Ops
-
-| Script | Description |
-|--------|-------------|
-| **fw-helper** | Fixed-wing helper — approach calc, stall speed, bank angle, wind triangle |
-| **wind-calc** | Wind component calculator — headwind/crosswind, Beaufort scale, GO/NO-GO |
-| **bf-osd** | Betaflight OSD — artificial horizon, compass tape, battery, military style toggle |
-| **compass** | Compass rose with attitude indicator |
-| **training** | 6 flight exercises — HOVER, BOX, FIGURE 8, ORBIT, SPEED RUN, LANDING |
-| **g-force** | G-force and attitude display from accelerometer |
-| **servo-test** | Servo/motor output tester for ArduPilot |
-
-### Field Utility
-
-| Script | Description |
-|--------|-------------|
-| **battery-log** | TX battery voltage tracking — graph, CSV logging, discharge rate |
-| **flight-log** | Flight logging with JSON persistence |
-| **ch-notes** | Channel label editor |
-| **motor-test** | Motor/ESC test display |
-| **site-manager** | Flying site database — GPS save, distance/bearing |
-| **unit-conv** | Unit converter — speed, distance, altitude, temp, weight, pressure |
-| **stopwatch** | Stopwatch with lap timing |
+**Field Utility:** Battery log, flight log, channel notes, motor test, site manager, unit converter, stopwatch
 
 ## Prerequisites
 
 - RadioMaster AX12 (stock firmware — root is built in)
-- Termux (installer handles everything else)
-- ELRS 3.5+ for MAVLink link mode
-- ATAK-CIV **4.10.x** on the AX12 for live tracking (5.x requires Android 10+, won't install)
+- Termux (installer handles the rest)
+- ELRS 3.5+ for MAVLink
+- ATAK-CIV **4.10.x** (5.x needs Android 10+, won't install on the AX12)
 
 ## Related
 
-Protocol research, hardware docs, and UMBUS tooling: [ax12-research](https://github.com/rmeadomavic/ax12-research)
+Protocol research, hardware teardown, UMBUS tooling: [ax12-research](https://github.com/rmeadomavic/ax12-research)
 
 ## License
 
