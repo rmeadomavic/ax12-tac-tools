@@ -1,20 +1,16 @@
 # AX12 Tactical Tools
 
-**Blue force tracking on your controller. Your UAS shows up on ATAK — live, on the handset, while you fly.**
+The AX12 runs Android. These tools put your drone on ATAK while you fly it — CoT bridge reads MAVLink off the ELRS link and feeds position/alt/heading/mode to the COP. You get live UAS tracking on the same handset you're flying with.
 
-The RadioMaster AX12 runs Android. These tools turn it into a field-ready TAK endpoint: the CoT bridge reads MAVLink telemetry off the ELRS link and pushes your aircraft's position, altitude, heading, and flight mode to the common operating picture in real time. The operator flying the aircraft IS the operator watching the COP. No second device, no GCS laptop in the truck.
+Also: TAK-style HUD overlay for the touchscreen (MGRS, compass, RSSI/LQ, mission timer), CCIP, 9-line CAS template, freq decon, preflight checklist, and a bunch of other field tools. All runs on-device in Termux, stdlib Python, no dependencies.
 
-**Capabilities:**
-- **UAS blue force tracking** — live CoT feed to ATAK. Aircraft position updates on the COP at 0.5 Hz. Callsign, altitude MSL, ground speed, heading, flight mode, armed state.
-- **TAK OSD** — HUD overlay on the AX12 touchscreen: MGRS grid, compass rose, RSSI/LQ, mission elapsed time. Runs in the radio app alongside normal stick control.
-- **Mission tools** — CCIP targeting, 9-line CAS brief (auto-fills grid/elev from GPS), frequency deconfliction, 6-phase mission timer, 12-item preflight checklist with GO/NO-GO.
-- **Field install** — one command in Termux, 5 minutes, no dependencies to chase.
+Install:
 
 ```
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-**[Setup guide](GETTING_STARTED.md)** — Termux install through ATAK integration, 30 minutes.
+Then type `tac`. Full setup walkthrough in [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)

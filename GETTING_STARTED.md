@@ -1,8 +1,8 @@
-# Getting Started with AX12 Tactical Tools
+# Getting Started
 
-These tools put your UAS on the TAK common operating picture — live, on the handset you're already holding. The AX12 runs Android with a touchscreen. The CoT bridge reads MAVLink telemetry off the ELRS link and feeds your aircraft's position to ATAK in real time. You fly and maintain SA on the COP from the same device. No GCS laptop, no second phone, no extra gear.
+The AX12 runs Android. These tools make it push your drone's position to ATAK over CoT so you can track it on the COP while you fly. Also includes a TAK-style HUD, CCIP, 9-line template, freq decon, mission timer, preflight checklist, and other field tools for the touchscreen.
 
-You also get 20+ Lua scripts for the radio's touchscreen — TAK OSD, CCIP targeting, 9-line CAS brief, MGRS converter, mission timer, preflight checklist — and Python field tools for airspace, payload drop calculations, and GPS. One command to install, then you're operational.
+One command to install. Takes about 30 minutes to get from a stock AX12 to a live drone track on the map.
 
 ---
 
@@ -79,9 +79,9 @@ You can also call tools directly from the command line:
 
 ---
 
-## ATAK Integration — UAS on the COP
+## ATAK Integration
 
-The CoT bridge reads MAVLink from the ELRS serial link and pushes your aircraft to ATAK as a `a-f-A-M-F-Q` (friendly air, UAV) track. Position, altitude MSL, heading, ground speed, flight mode, armed state — all on the COP at 0.5 Hz.
+The CoT bridge reads MAVLink off the ELRS serial link and pushes your aircraft to ATAK as an `a-f-A-M-F-Q` track. Position, alt MSL, heading, speed, flight mode, armed state — updates at 0.5 Hz.
 
 ### Install ATAK on the AX12
 
@@ -139,9 +139,9 @@ Full TAK configuration reference: [docs/tak-setup.md](docs/tak-setup.md)
 
 ---
 
-## On-Screen Tools (Lua Scripts)
+## Lua Scripts
 
-These run on the AX12 touchscreen inside the RadioMaster app — no Termux, no second app. Access: **System Menu > Lua Scripts > Tools**.
+These run on the AX12 touchscreen in the RadioMaster app. Access: **System Menu > Lua Scripts > Tools**.
 
 | Script | Capability |
 |---|---|
@@ -160,13 +160,11 @@ Full list: [lua/README.md](lua/README.md)
 
 ## Updating
 
-To get the latest tools and scripts:
-
 ```
 tac update
 ```
 
-Or pick it from the menu — option is listed near the bottom.
+Pulls latest code and re-copies Lua scripts. Also available from the menu.
 
 ---
 
@@ -189,8 +187,6 @@ The install added the alias to `~/.bashrc` but your current session doesn't have
 
 ---
 
-## Platform Reference
+## More
 
-Hardware reverse engineering, protocol documentation, and advanced tooling: [ax12-research](https://github.com/rmeadomavic/ax12-research)
-
-Covers: root/developer setup, hardware teardown, UMBUS serial protocol, device tree, ELRS backpack internals, and the full tool reference.
+Hardware docs, protocol research, and advanced tooling: [ax12-research](https://github.com/rmeadomavic/ax12-research)
