@@ -257,7 +257,153 @@ def _copy_lua():
     return "\n".join(lines)
 
 
-# ── ANSI to HTML ──────────────────────────────────────────────────────────────
+# ── Setup wizard checks ───────────────────────────────────────────────────────
+
+def check_atak_installed():
+    try:
+        r = subprocess.run(["pm", "list", "packages"], capture_output=True,
+                           text=True, timeout=5)
+        for line in r.stdout.splitlines():
+            pkg = line.replace("package:", "").strip()
+            if "atak" in pkg.lower():
+                return True, pkg
+    except Exception:
+        pass
+    return False, None
+
+
+def check_atak_udp_configured():
+    try:
+        r = subprocess.run(
+            ["su", "0", "sh", "-c", "grep -r '4242' /storage/emulated/0/atak/ 2>/dev/null"],
+            capture_output=True, text=True, timeout=5)
+        if "4242" in r.stdout:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def inject_atak_udp_config():
+    atak_dir = "/storage/emulated/0/atak"
+    try:
+        r = subprocess.run(["su", "0", "ls", atak_dir], capture_output=True,
+                           text=True, timeout=3)
+        if r.returncode != 0:
+            return False, "ATAK config directory not found. Launch ATAK once first, then re-run setup."
+    except Exception as e:
+        return False, str(e)
+
+    pref_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n<preferences>\n  <preference version="1" name="cot_streams">\n    <entry key="count" class="class java.lang.Integer">1</entry>\n    <entry key="description0" class="class java.lang.String">AX12 CoT Bridge</entry>\n    <entry key="enabled0" class="class java.lang.Boolean">true</entry>\n    <entry key="connectString0" class="class java.lang.String">udp+cotsocket://0.0.0.0:4242</entry>\n  </preference>\n</preferences>'
+
+    pref_dir = f"{atak_dir}/config/prefs"
+    try:
+        subprocess.run(["su", "0", "mkdir", "-p", pref_dir], capture_output=True, timeout=5)
+        proc = subprocess.run(
+            ["su", "0", "sh", "-c", f"cat > {pref_dir}/cot_streams.xml"],
+            input=pref_xml, capture_output=True, text=True, timeout=5)
+        if proc.returncode == 0:
+            return True, "UDP input configured (port 4242). Restart ATAK to apply."
+        return False, f"Write failed: {proc.stderr}"
+    except Exception as e:
+        return False, str(e)
+
+
+def run_setup_check():
+    checks = {}
+    try:
+        r = subprocess.run(["su", "0", "id"], capture_output=True, text=True, timeout=3)
+        checks["root"] = {"ok": "uid=0" in r.stdout, "detail": "su 0 available"}
+    except Exception:
+        checks["root"] = {"ok": False, "detail": "su 0 failed"}
+
+    installed, pkg = check_atak_installed()
+    checks["atak_installed"] = {"ok": installed, "detail": pkg if installed else "Not installed"}
+
+    if installed:
+        checks["atak_udp"] = {"ok": check_atak_udp_configured(), "detail": "UDP 4242" if check_atak_udp_configured() else "Not configured"}
+    else:
+        checks["atak_udp"] = {"ok": False, "detail": "ATAK not installed"}
+
+    checks["serial"] = {"ok": os.path.exists("/dev/ttyS1"), "detail": "/dev/ttyS1"}
+    return checks
+
+
+SETUP_HTML = r"""<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>AX12 SETUP</title><link rel="icon" href="/icon.png" type="image/png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:#0a0a0a;color:#e0e0e0;font-family:'Courier New',monospace;font-size:14px}
+.hdr{background:#0f0f0f;padding:12px 16px;border-bottom:1px solid #1a3a1a;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:13px;font-weight:700;color:#4a4;letter-spacing:3px}
+.back-link{color:#3a3;font-size:11px;cursor:pointer;padding:8px;letter-spacing:1px}
+.wrap{padding:16px;max-width:480px;margin:0 auto}
+.step{background:#0f0f0f;border:1px solid #1a3a1a;border-radius:4px;padding:14px;margin-bottom:12px}
+.step-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.step-title{font-size:12px;font-weight:700;color:#6c6;letter-spacing:1px}
+.step-status{font-size:10px;padding:2px 8px;border-radius:2px;letter-spacing:1px}
+.step-status.ok{color:#4f4;background:rgba(79,255,79,0.1);border:1px solid #2a4a2a}
+.step-status.fail{color:#c66;background:rgba(204,102,102,0.1);border:1px solid #4a2a2a}
+.step-status.manual{color:#ca3;background:rgba(204,170,51,0.1);border:1px solid #4a3a1a}
+.step-status.loading{color:#3a3;background:rgba(42,74,42,0.1);border:1px solid #1a3a1a}
+.step-body{font-size:11px;color:#4a4;line-height:1.6}
+.step-body code{background:#111;padding:1px 4px;border-radius:2px;color:#6c6}
+.step-btn{background:#1a2a1a;border:1px solid #2a4a2a;color:#6c6;padding:8px 16px;border-radius:3px;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;margin-top:8px}
+.step-btn:active{background:#2a3a2a}
+.step-btn.disabled{opacity:0.3;pointer-events:none}
+.params{background:#111;border:1px solid #1a3a1a;border-radius:3px;padding:8px;margin:8px 0;font-size:10px;line-height:1.8}
+.params .k{color:#ca3}.params .v{color:#6c6}
+.note{font-size:10px;color:#555;margin-top:6px;line-height:1.4}
+</style></head><body>
+<div class="hdr">
+  <div class="logo">FIRST TIME SETUP</div>
+  <div class="back-link" onclick="location.href='/'">BACK</div>
+</div>
+<div class="wrap">
+  <div class="step"><div class="step-hdr"><div class="step-title">1. ROOT ACCESS</div><div class="step-status loading" id="s1">CHECKING</div></div><div class="step-body">Factory root via su 0.</div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">2. INSTALL ATAK</div><div class="step-status loading" id="s2">CHECKING</div></div><div class="step-body" id="b2">Checking...</div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">3. ATAK NETWORK INPUT</div><div class="step-status loading" id="s3">CHECKING</div></div><div class="step-body" id="b3">Checking...</div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">4. ELRS MAVLINK MODE</div><div class="step-status manual" id="s4">MANUAL</div></div>
+  <div class="step-body">Open Flyshark on the AX12:<br><br><b>System Menu &gt; ELRS Lua &gt; Link Mode &gt; MAVLink</b><br><br>Tap <b>Save &amp; Reboot</b>. Then power cycle the receiver on the drone.<br><div class="note">Both TX and RX need ELRS 3.5+. You can switch back to CRSF anytime for normal flying.</div></div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">5. FLIGHT CONTROLLER</div><div class="step-status manual" id="s5">MANUAL</div></div>
+  <div class="step-body">Connect to FC with Mission Planner or QGC. Set on the UART where ELRS RX is connected:<div class="params"><span class="k">SERIALn_PROTOCOL</span> = <span class="v">2</span> (MAVLink 2)<br><span class="k">SERIALn_BAUD</span> = <span class="v">460</span> (460800)<br><span class="k">SRn_POSITION</span> = <span class="v">1</span><br><span class="k">SRn_EXTRA1</span> = <span class="v">1</span><br><span class="k">SRn_EXTRA2</span> = <span class="v">1</span><br><span class="k">SRn_EXT_STAT</span> = <span class="v">1</span></div>Reboot FC after saving. RX must be ESP-based (RP1/RP2/RP3, EP1/EP2).<div class="note">Only needs to be done once per drone.</div></div></div>
+
+  <div class="step"><div class="step-hdr"><div class="step-title">6. FLY</div><div class="step-status ok" id="s6">READY</div></div>
+  <div class="step-body">Power on drone, wait for GPS lock, tap <b>ATAK BRIDGE</b>, switch to ATAK. Your drone is on the map.<br><br><button class="step-btn" onclick="location.href='/'">BACK TO TOOLS</button></div></div>
+</div>
+<script>
+fetch('/api/setup-check').then(r=>r.json()).then(d=>{
+  const s1=document.getElementById('s1');
+  if(d.root.ok){s1.textContent='OK';s1.className='step-status ok'}else{s1.textContent='FAIL';s1.className='step-status fail'}
+
+  const s2=document.getElementById('s2'),b2=document.getElementById('b2');
+  if(d.atak_installed.ok){s2.textContent='INSTALLED';s2.className='step-status ok';b2.innerHTML=d.atak_installed.detail}
+  else{s2.textContent='NOT FOUND';s2.className='step-status fail';b2.innerHTML='Get ATAK from <b>tak.gov</b> (free) or <b>ATAK-CIV</b> in Play Store. Install, open it once, then come back.<br><br><button class="step-btn" onclick="location.reload()">CHECK AGAIN</button>'}
+
+  const s3=document.getElementById('s3'),b3=document.getElementById('b3');
+  if(d.atak_udp.ok){s3.textContent='CONFIGURED';s3.className='step-status ok';b3.innerHTML='UDP 4242 input ready.'}
+  else if(!d.atak_installed.ok){s3.textContent='WAITING';s3.className='step-status manual';b3.innerHTML='Install ATAK first (step 2).'}
+  else{s3.textContent='NOT SET';s3.className='step-status fail';b3.innerHTML='ATAK needs UDP input on port 4242.<br><br><button class="step-btn" id="cfg-btn" onclick="cfgAtak()">AUTO-CONFIGURE</button><div class="note" id="cfg-msg"></div><br><div class="note">If auto-config fails: ATAK &gt; Settings &gt; Network Preferences &gt; Add &gt; UDP, port 4242, address 0.0.0.0</div>'}
+}).catch(()=>{document.getElementById('s1').textContent='ERROR'});
+
+function cfgAtak(){
+  const b=document.getElementById('cfg-btn'),m=document.getElementById('cfg-msg');
+  b.classList.add('disabled');b.textContent='CONFIGURING...';
+  fetch('/api/setup-configure-atak',{method:'POST'}).then(r=>r.json()).then(d=>{
+    if(d.ok){m.innerHTML='<span style="color:#4f4">'+d.message+'</span>';document.getElementById('s3').textContent='CONFIGURED';document.getElementById('s3').className='step-status ok'}
+    else{m.innerHTML='<span style="color:#c66">'+d.message+'</span>';b.classList.remove('disabled');b.textContent='RETRY'}
+  }).catch(e=>{m.innerHTML='<span style="color:#c66">'+e+'</span>';b.classList.remove('disabled');b.textContent='RETRY'});
+}
+</script></body></html>"""
+
+
+#── ANSI to HTML ──────────────────────────────────────────────────────────────
 
 ANSI_COLORS = {
     "30": "#333", "31": "#c53030", "32": "#5a9c4f", "33": "#b45309",
@@ -442,6 +588,7 @@ html,body{width:100%;height:100%;background:#0a0a0a;color:#e0e0e0;font-family:'C
       <div class="logo">AX12 TAC TOOLS</div>
       <div class="hdr-right">
         <div class="stat">{{BATT}} &bull; {{UPTIME}}</div>
+        <div class="gear" onclick="location.href='/setup'" style="font-size:11px;letter-spacing:1px">SETUP</div>
         <div class="gear" onclick="showSettings()">&#9881;</div>
       </div>
     </div>
@@ -788,6 +935,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/api/config":
             self._json(load_config())
 
+        elif self.path == "/setup":
+            self._html(SETUP_HTML)
+
+        elif self.path == "/api/setup-check":
+            self._json(run_setup_check())
+
         elif self.path == "/icon.png":
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
@@ -876,6 +1029,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/api/config":
             save_config(data)
             self._json({"ok": True})
+
+        elif self.path == "/api/setup-configure-atak":
+            ok, msg = inject_atak_udp_config()
+            self._json({"ok": ok, "message": msg})
 
         else:
             self.send_error(404)
