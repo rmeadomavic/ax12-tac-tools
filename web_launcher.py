@@ -1061,15 +1061,17 @@ def main():
             elif arg.startswith("--port="):
                 port = int(arg.split("=")[1])
 
-    # Check if port is already in use
+    # Check if another server is actively listening
     import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.bind(("127.0.0.1", port))
+        sock.connect(("127.0.0.1", port))
         sock.close()
-    except OSError:
+        # Connection succeeded — something is already serving
         print(f"[tac-web] Port {port} already in use — server may already be running")
         sys.exit(0)
+    except (ConnectionRefusedError, OSError):
+        pass  # Nothing listening — safe to start
 
     server = ThreadedServer(("0.0.0.0", port), Handler)
     print(f"[tac-web] Serving on http://localhost:{port}")
