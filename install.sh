@@ -248,7 +248,7 @@ else
 fi
 
 # Lua files in place
-LUA_INSTALLED=$(su 0 ls "$LUA_DEST"/*.lua 2>/dev/null | wc -l || echo 0)
+LUA_INSTALLED=$(su 0 sh -c "ls '$LUA_DEST'/*.lua 2>/dev/null | wc -l" || echo 0)
 if [ "$LUA_INSTALLED" -gt 0 ]; then
     run_test "Lua files installed" ok "$LUA_INSTALLED files in $LUA_DEST"
 else
