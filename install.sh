@@ -147,6 +147,7 @@ fi
 echo ""
 echo -e "${BOLD}Phase 2 — Tool Install${NC}\n"
 
+PYTHON3="/data/data/com.termux/files/usr/bin/python3"
 REPO_DIR="$HOME/ax12-tac-tools"
 REPO_URL="https://github.com/rmeadomavic/ax12-tac-tools.git"
 
@@ -166,7 +167,6 @@ LUA_SRC="$REPO_DIR/lua"
 
 info "Installing Lua scripts to $LUA_DEST..."
 
-# Create dest directory (needs root for /storage/emulated/0 on Android)
 if su 0 mkdir -p "$LUA_DEST" 2>/dev/null; then
     ok "Lua destination directory ready"
 else
@@ -189,18 +189,16 @@ for lua_file in "$LUA_SRC"/*.lua; do
 done
 info "$LUA_COUNT Lua scripts installed, $LUA_FAIL failed"
 
-# Alias setup in ~/.bashrc
+# ── Alias + auto-launch ──────────────────────────────────────────────────────
 BASHRC="$HOME/.bashrc"
-ALIAS_CMD="alias tac='/data/data/com.termux/files/usr/bin/python3 $REPO_DIR/launcher.py'"
+ALIAS_CMD="alias tac='$PYTHON3 $REPO_DIR/launcher.py'"
 
 touch "$BASHRC"
 
 if grep -q "^alias tac=" "$BASHRC" 2>/dev/null; then
-    # Update existing alias
     sed -i "s|^alias tac=.*|$ALIAS_CMD|" "$BASHRC"
     ok "Updated 'tac' alias in ~/.bashrc"
 elif grep -q "alias tac=" "$BASHRC" 2>/dev/null; then
-    # Edge case: alias present but not at line start
     sed -i "s|alias tac=.*|$ALIAS_CMD|" "$BASHRC"
     ok "Updated 'tac' alias in ~/.bashrc"
 else
@@ -208,27 +206,67 @@ else
     ok "Added 'tac' alias to ~/.bashrc"
 fi
 
-# Source bashrc
+# Auto-launch: opening Termux shows the tool menu (not a blank prompt).
+# Skipped over SSH so remote access still gets a normal shell.
+# Set TAC_NO_MENU=1 in your env to disable.
+if grep -q "TAC_NO_MENU" "$BASHRC" 2>/dev/null; then
+    skip "Auto-launch already configured"
+else
+    cat >> "$BASHRC" <<'AUTOLAUNCH'
+
+# AX12 Tactical Tools — open menu on launch (skip over SSH)
+if [ -t 0 ] && [ -z "$SSH_CONNECTION" ] && [ -z "$TAC_NO_MENU" ]; then
+    /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/launcher.py
+fi
+AUTOLAUNCH
+    ok "Termux will open the tool menu on launch"
+fi
+
 # shellcheck disable=SC1090
 source "$BASHRC" 2>/dev/null || true
+
+# ── Home screen shortcuts (Termux:Widget) ─────────────────────────────────────
+SHORTCUTS_SRC="$REPO_DIR/shortcuts"
+SHORTCUTS_DST="$HOME/.shortcuts"
+
+if [ -d "$SHORTCUTS_SRC" ]; then
+    mkdir -p "$SHORTCUTS_DST"
+    SC_COUNT=0
+    for sc in "$SHORTCUTS_SRC"/*.sh; do
+        [ -f "$sc" ] || continue
+        cp "$sc" "$SHORTCUTS_DST/"
+        chmod +x "$SHORTCUTS_DST/$(basename "$sc")"
+        SC_COUNT=$((SC_COUNT + 1))
+    done
+    ok "$SC_COUNT home screen shortcuts installed"
+
+    if pm list packages 2>/dev/null | grep -q "com.termux.widget"; then
+        skip "Termux:Widget already installed"
+        info "Long-press home screen > Widgets > Termux:Widget to add buttons"
+    else
+        info "For home screen buttons, install Termux:Widget from F-Droid:"
+        info "  f-droid.org/en/packages/com.termux.widget/"
+        info "  Then: long-press home screen > Widgets > Termux:Widget"
+    fi
+fi
 
 # ── Self-test ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Self-test${NC}\n"
 
 PASS=0
-FAIL=0
+TESTS_FAIL=0
 
 run_test() {
     local label="$1"
-    local result="$2"  # "ok" or "fail"
+    local result="$2"
     local detail="${3:-}"
     if [ "$result" = "ok" ]; then
         ok "$label${detail:+  ($detail)}"
         PASS=$((PASS + 1))
     else
         fail "$label${detail:+  ($detail)}"
-        FAIL=$((FAIL + 1))
+        TESTS_FAIL=$((TESTS_FAIL + 1))
     fi
 }
 
@@ -270,18 +308,27 @@ else
     run_test "Root access (su 0)" fail "su 0 did not return uid=0"
 fi
 
+# Shortcuts installed
+SC_INSTALLED=$(ls "$SHORTCUTS_DST"/*.sh 2>/dev/null | wc -l || echo 0)
+if [ "$SC_INSTALLED" -gt 0 ]; then
+    run_test "Home screen shortcuts" ok "$SC_INSTALLED shortcuts in ~/.shortcuts"
+else
+    run_test "Home screen shortcuts" fail "no shortcuts found"
+fi
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}=== Install Summary ===${NC}"
+echo -e "${BOLD}=== Install Complete ===${NC}"
 echo -e "  Tests passed: ${GREEN}${PASS}${NC}"
-echo -e "  Tests failed: ${RED}${FAIL}${NC}"
+echo -e "  Tests failed: ${RED}${TESTS_FAIL}${NC}"
 echo ""
 
-if [ "$FAIL" -eq 0 ]; then
-    ok "Installation complete. Run 'source ~/.bashrc' then type 'tac' to launch."
+if [ "$TESTS_FAIL" -eq 0 ]; then
+    ok "Done. Tap Termux to open the tool menu."
+    info "Install Termux:Widget from F-Droid for home screen buttons."
 else
-    info "Installation completed with $FAIL issue(s). Review [FAIL] lines above."
-    info "Re-run this script after resolving issues — it is safe to re-run."
+    info "Completed with $TESTS_FAIL issue(s). Review [FAIL] lines above."
+    info "Safe to re-run this script after fixing issues."
 fi
 
 echo ""

@@ -33,49 +33,25 @@ Termux is a Linux terminal for Android — it's how the tools run on the AX12. *
 
 ## Step 2: Run the Installer
 
-Open Termux and paste this single command:
+Open Termux and paste this:
 
 ```
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-The installer will:
-- Install required packages (Python, git, tools)
-- Clone the ax12-tac-tools repo to your device
-- Copy all Lua scripts to the right folder for the RadioMaster app
-- Add a `tac` shortcut command to your shell
-
-It takes a few minutes depending on your WiFi speed. It's safe to re-run if anything goes wrong — it won't break what's already installed.
+Takes a few minutes. It installs packages, clones the tools, copies Lua scripts to the radio app, sets up home screen shortcuts, and configures Termux to open the tool menu automatically. Safe to re-run.
 
 ---
 
-## Step 3: Try It Out
+## Step 3: Using It
 
-Once the install finishes, type `tac` to open the interactive menu:
+After install, there are three ways to launch tools:
 
-```
-╔══════════════════════════════╗
-║     AX12 Tactical Tools      ║
-╠══════════════════════════════╣
-║  [1] ATAK CoT Bridge         ║
-║  [2] GPS Info                ║
-║  [3] Airspace Check          ║
-║  [4] ELRS Status             ║
-║  [5] MAVLink Monitor         ║
-║  [6] CoT Test (Null Island)  ║
-║  [7] System Info             ║
-║  [0] Exit                    ║
-╚══════════════════════════════╝
-```
+**Tap Termux** — the tool menu opens automatically. Arrow keys or tap to pick a tool, Enter to run it.
 
-You can also call tools directly from the command line:
+**Home screen widgets** — install [Termux:Widget](https://f-droid.org/en/packages/com.termux.widget/) from F-Droid. Then long-press your home screen > Widgets > Termux:Widget. You get individual buttons for ATAK Bridge, GPS Position, Airspace Brief, etc. Tap a button, the tool runs. No menus.
 
-| Command | What it does |
-|---|---|
-| `tac atak` | Start the live ATAK CoT bridge |
-| `tac gps` | Show GPS fix, coordinates, accuracy |
-| `tac airspace` | Check airspace restrictions |
-| `tac --help` | List all available commands |
+**Command line** (over SSH or in Termux) — `tac atak`, `tac gps`, `tac airspace`, `tac --help`.
 
 ---
 
