@@ -113,12 +113,15 @@ def stop_tool(force=False):
         return True, "Nothing running."
     try:
         pgid = os.getpgid(proc.pid)
-        if force:
-            os.killpg(pgid, signal.SIGKILL)
-            return True, "Force killed."
-        else:
-            os.killpg(pgid, signal.SIGTERM)
-            return True, "Stop signal sent."
+        sig = signal.SIGKILL if force else signal.SIGTERM
+        try:
+            os.killpg(pgid, sig)
+        except PermissionError:
+            # Process runs as root (su 0) — use su to kill it
+            sig_num = 9 if force else 15
+            subprocess.run(["su", "0", "kill", f"-{sig_num}", f"-{pgid}"],
+                           timeout=5, capture_output=True)
+        return True, "Force killed." if force else "Stop signal sent."
     except Exception as e:
         return False, str(e)
 
