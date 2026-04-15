@@ -1,6 +1,8 @@
 # Getting Started with AX12 Tactical Tools
 
-Your RadioMaster AX12 is a tactical computer running Android, not just a radio controller. These tools unlock drone tracking on ATAK, mission planning, GPS tools, and 20+ Lua scripts for the touchscreen. One install command, then you're operational.
+Your RadioMaster AX12 isn't just a remote control — it's an Android computer with a touchscreen, GPS, and WiFi. These tools turn it into a live tactical display: **your drone appears on a real map on the controller in your hands, updating in real time as it flies.** You see its position, altitude, heading, speed, and flight mode — all while holding the sticks. No phone, no tablet, no laptop required.
+
+Beyond live tracking, you get 20+ Lua scripts (military HUD, targeting, mission timer, preflight checklists) and Python tools for airspace checks, payload drop calculations, and rover navigation. One install command, then you're operational.
 
 ---
 
@@ -88,7 +90,7 @@ You can also call tools directly from the command line:
 
 ## TAK Integration (The Main Event)
 
-ATAK is a military-grade mapping app used by US forces and first responders. It shows real-time positions of all connected units on a map. The CoT bridge in these tools streams your drone's GPS position from the ELRS link directly into ATAK — so you can see your aircraft on the map, live.
+This is what you came here for. ATAK (Android Team Awareness Kit) is the mapping app used by US military and first responders for real-time situational awareness. Install it on your AX12 and run the CoT bridge — now your drone's live GPS position streams straight from the ELRS link onto the map on your controller's screen. You fly the drone and watch it move on the map at the same time, on the same device, in your hands. Altitude, speed, heading, flight mode — all updating in real time.
 
 ### Install ATAK
 

@@ -1,12 +1,25 @@
 # AX12 Tactical Tools
 
-Operational UxS tools for the RadioMaster AX12. Python stdlib only, Lua scripts for the Flyshark VM, runs on-device in Termux. No external dependencies.
+**See your drone on a real map — live on the controller in your hands.**
+
+The RadioMaster AX12 runs Android. These tools turn it into a tactical ground station: ATAK shows your drone's real-time GPS position on a moving map directly on the AX12's touchscreen while you fly. No extra phone, no extra tablet, no laptop — your controller IS the map.
+
+**What you get:**
+- **Live drone tracking** — your aircraft appears on the ATAK map in real time, updating as it flies. Altitude, heading, speed, flight mode — all on screen while you hold the sticks.
+- **TAK-style HUD** — a military heads-up display overlay (Lua script) showing MGRS grid, compass, RSSI, link quality, and mission timer directly in the RadioMaster app.
+- **One-command install** — paste one line into Termux and everything sets itself up. Type `tac` to launch.
+
+```
+pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
+```
+
+**[Get started here](GETTING_STARTED.md)** — full walkthrough from unboxing to drone-on-map in 30 minutes.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)
 ![Platform: Android 9](https://img.shields.io/badge/platform-Android%209-green.svg)
 
-## Architecture
+## How It Works
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -36,6 +49,18 @@ Operational UxS tools for the RadioMaster AX12. Python stdlib only, Lua scripts 
 ```
 
 ## Quick Start
+
+Already installed? Type `tac` for the launcher menu, or use shortcuts:
+
+```bash
+tac atak       # start live drone tracking on ATAK
+tac mavlink    # connect QGroundControl via ELRS
+tac gps        # show current GPS position
+tac airspace   # pre-flight airspace briefing
+tac --help     # list all shortcuts
+```
+
+Manual commands (if you prefer):
 
 ```bash
 su 0 python3 tools/cot_bridge.py --test          # ATAK CoT bridge (synthetic data)
