@@ -233,10 +233,13 @@ if grep -q "tac-web" "$BASHRC" 2>/dev/null; then
 else
     cat >> "$BASHRC" <<'WEBLAUNCH'
 
-# AX12 Tactical Tools — start web launcher if not running
-if ! pgrep -f "web_launcher.py" > /dev/null 2>&1; then
-    nohup /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/web_launcher.py > /dev/null 2>&1 &
-fi
+# AX12 Tactical Tools — start web launcher if not running (interactive only)
+case $- in *i*)
+    if ! pgrep -f "web_launcher.py" > /dev/null 2>&1; then
+        nohup /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/web_launcher.py > /dev/null 2>&1 &
+    fi
+    ;;
+esac
 WEBLAUNCH
     ok "Web launcher starts when Termux opens"
 fi

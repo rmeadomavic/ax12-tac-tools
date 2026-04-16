@@ -68,8 +68,43 @@ COPTER_MODES = {
 }
 
 # MAVLink system type for type field mapping
-MAV_TYPE_QUADROTOR = 2
 MAV_TYPE_FIXED_WING = 1
+MAV_TYPE_QUADROTOR = 2
+MAV_TYPE_HEXAROTOR = 13
+MAV_TYPE_OCTOROTOR = 14
+MAV_TYPE_TRICOPTER = 15
+
+_ROTARY_TYPES = {
+    MAV_TYPE_QUADROTOR, MAV_TYPE_HEXAROTOR,
+    MAV_TYPE_OCTOROTOR, MAV_TYPE_TRICOPTER,
+}
+
+
+def cot_type_for(mav_type):
+    """Map MAV_TYPE → CoT 2525 type. Defaults to friendly air UAV."""
+    if mav_type == MAV_TYPE_FIXED_WING:
+        return "a-f-A-M-F-Q"   # friendly air military fixed-wing UAV
+    if mav_type in _ROTARY_TYPES:
+        return "a-f-A-M-H-Q"   # friendly air military rotary-wing UAV
+    return "a-f-A-M-F-Q"
+
+
+# ===================================================================
+# MAVLink CRC (X.25 / CCITT)
+# ===================================================================
+
+def _crc_accumulate(byte: int, crc: int) -> int:
+    tmp = (byte ^ (crc & 0xFF)) & 0xFF
+    tmp = (tmp ^ (tmp << 4)) & 0xFF
+    return ((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF
+
+
+def mavlink_crc(data: bytes, crc_extra: int) -> int:
+    """X.25 CRC over the frame (excluding start byte), seeded with crc_extra."""
+    crc = 0xFFFF
+    for b in data:
+        crc = _crc_accumulate(b, crc)
+    return _crc_accumulate(crc_extra, crc)
 
 
 # ===================================================================
@@ -136,6 +171,10 @@ class MAVLinkParser:
 
             if frame is None:
                 return  # Need more data
+            if frame is False:
+                # Bad CRC or unknown msg — skip this start byte and resync.
+                del self._buf[:1]
+                continue
             yield frame
 
     def _find_byte(self, byte: int) -> int:
@@ -145,7 +184,11 @@ class MAVLinkParser:
             return -1
 
     def _try_parse_v1(self):
-        """Try to parse a MAVLink v1 frame from buffer start."""
+        """Try to parse a MAVLink v1 frame from buffer start.
+
+        Returns a frame on success, False on bad CRC / unknown msg (caller
+        should advance 1 byte and resync), or None if more data is needed.
+        """
         if len(self._buf) < MAVLINK_V1_HEADER_LEN:
             return None
 
@@ -156,11 +199,18 @@ class MAVLinkParser:
             return None
 
         raw = bytes(self._buf[:frame_len])
-        del self._buf[:frame_len]
-
         msg_id = raw[5]
-        payload = raw[MAVLINK_V1_HEADER_LEN:MAVLINK_V1_HEADER_LEN + payload_len]
+        crc_extra = CRC_EXTRA.get(msg_id)
+        if crc_extra is None:
+            return False  # can't validate unknown msg; resync
 
+        expected = mavlink_crc(raw[1:MAVLINK_V1_HEADER_LEN + payload_len], crc_extra)
+        actual = raw[-2] | (raw[-1] << 8)
+        if expected != actual:
+            return False
+
+        del self._buf[:frame_len]
+        payload = raw[MAVLINK_V1_HEADER_LEN:MAVLINK_V1_HEADER_LEN + payload_len]
         return MAVLinkFrame(
             version=1,
             msg_id=msg_id,
@@ -170,23 +220,37 @@ class MAVLinkParser:
         )
 
     def _try_parse_v2(self):
-        """Try to parse a MAVLink v2 frame from buffer start."""
+        """Try to parse a MAVLink v2 frame from buffer start.
+
+        Same return protocol as _try_parse_v1. Signed v2 frames (incompat
+        flag 0x01) are consumed and dropped — we don't verify signatures.
+        """
         if len(self._buf) < MAVLINK_V2_HEADER_LEN:
             return None
 
         payload_len = self._buf[1]
-        frame_len = MAVLINK_V2_HEADER_LEN + payload_len + MAVLINK_V2_CRC_LEN
+        incompat = self._buf[2]
+        sig_len = 13 if (incompat & 0x01) else 0
+        frame_len = MAVLINK_V2_HEADER_LEN + payload_len + MAVLINK_V2_CRC_LEN + sig_len
 
         if len(self._buf) < frame_len:
             return None
 
         raw = bytes(self._buf[:frame_len])
-        del self._buf[:frame_len]
-
-        # v2 message ID is 3 bytes, little-endian
         msg_id = raw[7] | (raw[8] << 8) | (raw[9] << 16)
-        payload = raw[MAVLINK_V2_HEADER_LEN:MAVLINK_V2_HEADER_LEN + payload_len]
 
+        crc_extra = CRC_EXTRA.get(msg_id)
+        if crc_extra is None:
+            return False
+
+        crc_end = MAVLINK_V2_HEADER_LEN + payload_len
+        expected = mavlink_crc(raw[1:crc_end], crc_extra)
+        actual = raw[crc_end] | (raw[crc_end + 1] << 8)
+        if expected != actual:
+            return False
+
+        del self._buf[:frame_len]
+        payload = raw[MAVLINK_V2_HEADER_LEN:crc_end]
         return MAVLinkFrame(
             version=2,
             msg_id=msg_id,
@@ -588,6 +652,7 @@ class CoTBridge:
             flight_mode=hb.get('flight_mode', 'UNKNOWN'),
             armed=hb.get('armed', False),
             uid=self.uid,
+            cot_type=cot_type_for(hb.get('mav_type')),
         )
 
         try:

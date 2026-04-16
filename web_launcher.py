@@ -17,6 +17,7 @@ import http.server
 import json
 import os
 import re
+import shlex
 import signal
 import socket
 import socketserver
@@ -73,13 +74,25 @@ def _read_output(proc):
         _proc_exit_code = proc.returncode
 
 
-def start_tool(cmd, label, timeout=None):
-    """Start a tool subprocess. Returns (ok, error_msg).
+def _split_cmd(cmd):
+    """Split a cmd string into argv, expanding ~ on each token.
 
-    Bug fix: the entire body runs under _proc_lock to prevent races
-    between the liveness check and subprocess spawn.
+    Avoids shell=True so nothing from tools.json gets re-parsed by a shell.
     """
+    argv = shlex.split(cmd)
+    return [os.path.expanduser(a) for a in argv]
+
+
+def start_tool(cmd, label, timeout=None):
+    """Start a tool subprocess. Returns (ok, error_msg)."""
     global _current_proc, _current_label, _output_lines, _proc_done, _proc_exit_code
+
+    try:
+        argv = _split_cmd(cmd)
+    except ValueError as e:
+        return False, f"Invalid command: {e}"
+    if not argv:
+        return False, "Empty command"
 
     with _proc_lock:
         if _current_proc and _current_proc.poll() is None:
@@ -96,7 +109,7 @@ def start_tool(cmd, label, timeout=None):
 
         try:
             proc = subprocess.Popen(
-                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1, env=env, cwd=REPO_DIR,
                 preexec_fn=os.setsid,
             )
@@ -303,19 +316,45 @@ def check_atak_installed():
     return False, None
 
 
-def check_atak_udp_configured():
+ATAK_PREFS_PATH = "/storage/emulated/0/atak/config/prefs/cot_streams.xml"
+
+
+def _read_atak_prefs():
+    """Return the cot_streams.xml content as a string, or None if missing."""
     try:
-        r = subprocess.run(
-            ["su", "0", "sh", "-c", "grep -r '4242' /storage/emulated/0/atak/ 2>/dev/null"],
-            capture_output=True, text=True, timeout=5)
-        if "4242" in r.stdout:
-            return True
+        r = subprocess.run(["su", "0", "cat", ATAK_PREFS_PATH],
+                           capture_output=True, text=True, timeout=3)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout
     except Exception:
         pass
+    return None
+
+
+def check_atak_udp_configured():
+    """True iff an enabled connectString targets UDP port 4242."""
+    import xml.etree.ElementTree as ET
+    xml_str = _read_atak_prefs()
+    if not xml_str:
+        return False
+    try:
+        root = ET.fromstring(xml_str)
+    except ET.ParseError:
+        return False
+    for pref in root.findall("preference"):
+        if pref.get("name") != "cot_streams":
+            continue
+        for entry in pref.findall("entry"):
+            key = entry.get("key", "")
+            if key.startswith("connectString") and entry.text and "4242" in entry.text:
+                return True
     return False
 
 
 def inject_atak_udp_config():
+    """Add a UDP 4242 stream to ATAK prefs, preserving existing streams."""
+    import xml.etree.ElementTree as ET
+
     atak_dir = "/storage/emulated/0/atak"
     try:
         r = subprocess.run(["su", "0", "ls", atak_dir], capture_output=True,
@@ -325,14 +364,67 @@ def inject_atak_udp_config():
     except Exception as e:
         return False, str(e)
 
-    pref_xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n<preferences>\n  <preference version="1" name="cot_streams">\n    <entry key="count" class="class java.lang.Integer">1</entry>\n    <entry key="description0" class="class java.lang.String">AX12 CoT Bridge</entry>\n    <entry key="enabled0" class="class java.lang.Boolean">true</entry>\n    <entry key="connectString0" class="class java.lang.String">udp+cotsocket://0.0.0.0:4242</entry>\n  </preference>\n</preferences>'
+    existing = _read_atak_prefs()
+    if existing:
+        try:
+            root = ET.fromstring(existing)
+        except ET.ParseError:
+            root = ET.Element("preferences")
+    else:
+        root = ET.Element("preferences")
+
+    pref = None
+    for p in root.findall("preference"):
+        if p.get("name") == "cot_streams":
+            pref = p
+            break
+    if pref is None:
+        pref = ET.SubElement(root, "preference", {"version": "1", "name": "cot_streams"})
+
+    # Find current count and bail early if our entry already exists.
+    count = 0
+    for entry in pref.findall("entry"):
+        if entry.get("key") == "count":
+            try:
+                count = int((entry.text or "0").strip())
+            except ValueError:
+                count = 0
+        if (entry.get("key", "").startswith("connectString")
+                and entry.text and "4242" in entry.text):
+            return True, "UDP 4242 already configured."
+
+    idx = count
+    new_entries = [
+        (f"description{idx}", "class java.lang.String", "AX12 CoT Bridge"),
+        (f"enabled{idx}",     "class java.lang.Boolean", "true"),
+        (f"connectString{idx}", "class java.lang.String", "udp+cotsocket://0.0.0.0:4242"),
+    ]
+    for key, cls, val in new_entries:
+        e = ET.SubElement(pref, "entry", {"key": key, "class": cls})
+        e.text = val
+
+    # Update or create the count entry.
+    count_entry = None
+    for entry in pref.findall("entry"):
+        if entry.get("key") == "count":
+            count_entry = entry
+            break
+    if count_entry is None:
+        count_entry = ET.SubElement(
+            pref, "entry",
+            {"key": "count", "class": "class java.lang.Integer"})
+    count_entry.text = str(idx + 1)
+
+    body = ('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n'
+            + ET.tostring(root, encoding="unicode"))
 
     pref_dir = f"{atak_dir}/config/prefs"
     try:
-        subprocess.run(["su", "0", "mkdir", "-p", pref_dir], capture_output=True, timeout=5)
+        subprocess.run(["su", "0", "mkdir", "-p", pref_dir],
+                       capture_output=True, timeout=5)
         proc = subprocess.run(
-            ["su", "0", "sh", "-c", f"cat > {pref_dir}/cot_streams.xml"],
-            input=pref_xml, capture_output=True, text=True, timeout=5)
+            ["su", "0", "tee", ATAK_PREFS_PATH],
+            input=body, capture_output=True, text=True, timeout=5)
         if proc.returncode == 0:
             return True, "UDP input configured (port 4242). Restart ATAK to apply."
         return False, f"Write failed: {proc.stderr}"
@@ -1194,9 +1286,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", len(body))
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
+
+    def _check_origin(self):
+        """Reject state-changing requests from other origins.
+
+        Browsers always set Origin on cross-origin POST. Same-origin fetches
+        from the served page also set it. Absent Origin (curl, launcher scripts
+        on the device) is allowed.
+        """
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return True
+        allowed = ("http://localhost:", "http://127.0.0.1:")
+        if origin.startswith(allowed):
+            return True
+        self._json({"ok": False, "error": "Forbidden origin"}, code=403)
+        return False
 
     def _html(self, content):
         body = content.encode()
@@ -1268,6 +1375,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
+        if not self._check_origin():
+            return
         length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(length) if length else b"{}"
         try:
@@ -1341,10 +1450,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        # Same-origin only — no CORS preflight needed.
+        self.send_response(405)
         self.end_headers()
 
 
