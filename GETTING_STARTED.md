@@ -1,6 +1,6 @@
 # Getting Started
 
-These tools put your drone on ATAK while you fly it. CoT bridge reads MAVLink off ELRS, pushes position/heading/mode to the COP. Also has a TAK OSD, CCIP, 9-line, freq decon, mission timer, preflight, and other field stuff for the touchscreen.
+These tools put your drone on ATAK while you fly it. CoT bridge reads MAVLink off ELRS, pushes position/heading/mode to the COP. Also has a TAK OSD, CCIP, 9-line, freq decon, mission timer, and preflight on the touchscreen.
 
 About 30 minutes from a stock AX12 to a live track on the map.
 
@@ -12,7 +12,7 @@ About 30 minutes from a stock AX12 to a live track on the map.
 
 ## Step 1: Install Termux
 
-Termux is a Linux terminal for Android. **Don't use the Play Store version** — it's dead.
+Termux is a Linux terminal for Android. **Don't use the Play Store version.** It's dead.
 
 Get the real one from `github.com/termux/termux-app/releases`. Download the universal APK on the AX12's browser, install it. If you have a computer handy you can also `adb install` it.
 
@@ -30,7 +30,7 @@ Installs Python/git/SSH, clones the repo, copies Lua scripts to Flyshark, sets u
 
 Go to `localhost:8080` in Chrome. Bookmark it to your home screen (three dots > Add to Home screen) and it acts like an app. Starts on boot if you have Termux:Boot.
 
-Tap a button, the tool runs. Gear icon for settings — add/remove/reorder tools there. Changes persist across updates.
+Tap a button, the tool runs. Gear icon for settings: add/remove/reorder tools there. Changes persist across updates.
 
 From the command line (SSH, etc.): `tac atak`, `tac gps`, `tac --help`.
 
