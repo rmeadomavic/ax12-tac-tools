@@ -74,6 +74,26 @@ entirely.
    - Baud Rate: **460800**
 4. Connect — you should see the vehicle appear within a few seconds
 
+**One-tap launch (web launcher):** Tap the **QGC LAUNCH** tile. It starts
+`mavlink_bridge.py` detached, chmods `/dev/ttyS1`, and opens QGC. First
+connect inside QGC: add a **TCP** link to `127.0.0.1:5760`, or a **Serial**
+link on `/dev/ttyS1` @ 460800. Same script: `scripts/qgc-launch.sh`.
+
+### Controlling the vehicle from QGC
+
+Once QGC shows a green connection:
+
+- **Arm/disarm** — slide-to-arm in the Fly view action menu
+- **Flight mode** — top-left mode dropdown (LOITER / GUIDED / AUTO / RTL / LAND)
+- **Takeoff** — Fly view → action menu → Takeoff (altitude slider)
+- **Goto** — switch to GUIDED, long-press a point on the map → Go to location
+- **RTL / Land** — action menu
+- **Mission** — Plan view → drag waypoints → Upload → switch to AUTO → Start Mission
+- **Params** — Vehicle Setup → Parameters (search, edit, save)
+
+Pre-arm must pass first (3D fix, safety switch off, no failsafes). If arm
+refuses, the HUD's statustext line tells you what's blocking it.
+
 If QGC cannot open the port, it may need root. Launch from Termux:
 
 ```

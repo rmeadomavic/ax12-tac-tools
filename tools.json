@@ -26,6 +26,15 @@
       "name": "FLIGHT OPS",
       "tools": [
         {
+          "label": "QGC LAUNCH",
+          "description": "Start bridge (detached) + open QGroundControl on-device",
+          "cmd": "bash ~/ax12-tac-tools/scripts/qgc-launch.sh",
+          "shortcut": "qgc",
+          "requires": [],
+          "long_running": false,
+          "timeout": 20
+        },
+        {
           "label": "AIRSPACE",
           "description": "Pre-flight airspace restriction check",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/airspace_check.py brief",
