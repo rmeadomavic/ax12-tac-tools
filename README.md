@@ -1,8 +1,8 @@
 # AX12 Tactical Tools
 
-Your AX12 runs Android. These tools turn it into a TAK endpoint — the CoT bridge pulls MAVLink telemetry off ELRS and puts your drone on the COP while you fly it. Same handset, same hands. 
+Your AX12 runs Android. These tools turn it into a TAK endpoint. The CoT bridge pulls MAVLink telemetry off ELRS and puts your drone on the COP while you fly it. No second device in the loop.
 
-There's also a TAK OSD for the touchscreen, CCIP, 9-line CAS template, freq decon, mission timer, preflight checklist, and some other stuff that's useful in the field. Everything runs on-device in Termux. No pip, no npm, no dependencies beyond what ships with Python.
+There's also a TAK OSD for the touchscreen, CCIP, 9-line CAS template, freq decon, mission timer, and preflight checklist. Everything runs on-device in Termux. No pip, no npm, no dependencies beyond what ships with Python.
 
 ## Install
 
@@ -12,7 +12,7 @@ Open Termux, paste this:
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-After that, open `localhost:8080` in Chrome. Bookmark it to your home screen — it acts like an app. The server starts on boot if you have Termux:Boot installed.
+After that, open `localhost:8080` in Chrome. Bookmark it to your home screen. It acts like an app. The server starts on boot if you have Termux:Boot installed.
 
 Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md)
 
@@ -59,7 +59,7 @@ Installed automatically to Flyshark. Access: System Menu > Lua Scripts > Tools.
 
 ## Prerequisites
 
-- RadioMaster AX12 (stock firmware — root is built in)
+- RadioMaster AX12 (stock firmware; root is built in)
 - Termux (installer handles the rest)
 - ELRS 3.5+ for MAVLink
 - ATAK-CIV **4.10.x** (5.x needs Android 10+, won't install on the AX12)
