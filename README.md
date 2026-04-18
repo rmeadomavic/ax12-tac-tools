@@ -34,18 +34,23 @@ tools.json       Tool registry (edit to add/remove/reorder tools)
 
 ### Python Tools
 
+**Core** — flight kit:
+
 | Tool | What it does |
 |------|-------------|
-| `cot_bridge.py` | MAVLink → CoT for ATAK. The main one. |
-| `mavlink_bridge.py` | ELRS Backpack WiFi → TCP for QGC/Mission Planner |
-| `test_cot.py` | Sends a single CoT blip to verify ATAK is listening |
-| `airspace_check.py` | Offline airspace restriction briefing |
+| `cot_bridge.py` | Drone position on ATAK. The main one. |
+| `test_cot.py` | First-run check: does ATAK see you? |
+| `airspace_check.py` | Offline airspace briefing for the AO |
 | `payload_drop.py` | Drop point calculator |
-| `gps_tool.py` | GPS position from the MT6631 |
-| `gps_position.py` | Continuous GPS with NMEA and satellite info |
-| `rover_nav.py` | ArduRover GPS nav and geofencing |
-| `imu_tracker.py` | ICM-42607 head tracking |
-| `hydra_display.py` | AI detection telemetry client (Hydra project) |
+| `gps_tool.py` | Current GPS fix |
+
+**Extras** — dev, diagnostics, platform-specific:
+
+| Tool | What it does |
+|------|-------------|
+| `mavlink_bridge.py` | Expose MAVLink to laptop GCS (QGC, Mission Planner). Tuning/bench. |
+| `gps_position.py` | Continuous GPS with NMEA and sat info. Diagnostic. |
+| `rover_nav.py` | ArduRover GPS nav and geofencing. UGV only. |
 
 ### Lua Scripts (Touchscreen)
 

@@ -12,14 +12,6 @@
           "long_running": true
         },
         {
-          "label": "MAVLINK BRIDGE",
-          "description": "Connect QGC/Mission Planner via ELRS",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
-          "shortcut": "mavlink",
-          "requires": [],
-          "long_running": true
-        },
-        {
           "label": "COT TEST",
           "description": "Send one test blip to verify ATAK",
           "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/test_cot.py",
@@ -52,17 +44,8 @@
           "timeout": 30
         },
         {
-          "label": "ROVER NAV",
-          "description": "ArduRover GPS nav and geofencing",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py --demo",
-          "shortcut": "rover",
-          "requires": [],
-          "long_running": false,
-          "timeout": 30
-        },
-        {
           "label": "GPS",
-          "description": "Current GPS fix from MT6631",
+          "description": "Current GPS fix",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_tool.py position",
           "shortcut": "gps",
           "requires": ["root"],
@@ -72,14 +55,14 @@
       ]
     },
     {
-      "name": "SENSORS",
+      "name": "UTILITIES",
       "tools": [
         {
-          "label": "IMU TRACKER",
-          "description": "ICM-42607 head tracking",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/imu_tracker.py",
-          "shortcut": "imu",
-          "requires": ["root"],
+          "label": "MAVLINK BRIDGE",
+          "description": "Expose MAVLink to laptop GCS (QGC, Mission Planner)",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
+          "shortcut": "mavlink",
+          "requires": [],
           "long_running": true
         },
         {
@@ -91,10 +74,10 @@
           "long_running": true
         },
         {
-          "label": "HYDRA AI",
-          "description": "Object detection telemetry client",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/hydra_display.py demo",
-          "shortcut": "hydra",
+          "label": "ROVER NAV",
+          "description": "ArduRover GPS nav and geofencing (UGV)",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py --demo",
+          "shortcut": "rover",
           "requires": [],
           "long_running": false,
           "timeout": 30
