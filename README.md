@@ -1,8 +1,8 @@
 # AX12 Tactical Tools
 
-Your AX12 runs Android. These tools turn it into a TAK endpoint. The CoT bridge pulls MAVLink telemetry off ELRS and puts your drone on the COP while you fly it. No second device in the loop.
+The AX12 is an Android radio. Run the CoT bridge on it and your MAVLink telemetry off ELRS shows up in ATAK while you're flying.
 
-There's also a TAK OSD for the touchscreen, CCIP, 9-line CAS template, freq decon, mission timer, and preflight checklist. Everything runs on-device in Termux. No pip, no npm, no dependencies beyond what ships with Python.
+Also in here: TAK OSD for the touchscreen, CCIP, 9-line CAS, freq decon, mission timer, preflight checklist. Runs in Termux, stdlib Python only.
 
 ## Install
 
@@ -12,7 +12,7 @@ Open Termux, paste this:
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-After that, open `localhost:8080` in Chrome. Bookmark it to your home screen. It acts like an app. The server starts on boot if you have Termux:Boot installed.
+Open `localhost:8080` in Chrome and bookmark it to your home screen. The server starts on boot if you have Termux:Boot installed.
 
 Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md)
 
@@ -38,8 +38,8 @@ tools.json       Tool registry (edit to add/remove/reorder tools)
 
 | Tool | What it does |
 |------|-------------|
-| `cot_bridge.py` | Drone position on ATAK. The main one. |
-| `test_cot.py` | First-run check: does ATAK see you? |
+| `cot_bridge.py` | Drone position on ATAK. |
+| `test_cot.py` | Sends a single CoT blip to verify ATAK is listening. |
 | `airspace_check.py` | Offline airspace briefing for the AO |
 | `payload_drop.py` | Drop point calculator |
 | `gps_tool.py` | Current GPS fix |
