@@ -25,11 +25,9 @@ LUA_DEST = "/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS"
 # Tool registry: (label, description, cmd, timeout_sec, needs_root)
 # timeout_sec=0 means no timeout (None passed to subprocess)
 CATEGORIES = [
-    ("TAK INTEGRATION", [
+    ("TAK", [
         ("ATAK CoT Bridge",  "Stream drone position to ATAK map",
          f"su 0 {PYTHON3} {TOOLS}/cot_bridge.py",        0,  True),
-        ("MAVLink Bridge",   "Connect QGC/Mission Planner via ELRS",
-         f"{PYTHON3} {TOOLS}/mavlink_bridge.py bridge",   0,  False),
         ("CoT Test Send",    "Send one test blip to verify ATAK",
          f"{PYTHON3} {TOOLS}/test_cot.py",                15, False),
     ]),
@@ -38,18 +36,16 @@ CATEGORIES = [
          f"su 0 {PYTHON3} {TOOLS}/airspace_check.py brief", 30, True),
         ("Payload Drop Calc","Aerial drop point calculator",
          f"su 0 {PYTHON3} {TOOLS}/payload_drop.py calc",    30, True),
-        ("Rover Navigation", "ArduRover GPS nav and geofencing",
-         f"{PYTHON3} {TOOLS}/rover_nav.py --demo",          30, False),
         ("GPS Position",     "Current GPS fix from MT6631",
          f"su 0 {PYTHON3} {TOOLS}/gps_tool.py position",    15, True),
     ]),
-    ("SENSORS", [
-        ("IMU Tracker",      "ICM-42607 head tracking",
-         f"su 0 {PYTHON3} {TOOLS}/imu_tracker.py",          0,  True),
+    ("UTILITIES", [
+        ("MAVLink Bridge",   "Connect QGC/Mission Planner via ELRS",
+         f"{PYTHON3} {TOOLS}/mavlink_bridge.py bridge",   0,  False),
         ("GPS Monitor",      "Continuous GPS with NMEA/satellite info",
          f"su 0 {PYTHON3} {TOOLS}/gps_position.py",         0,  True),
-        ("Hydra AI Display", "Object detection telemetry client",
-         f"{PYTHON3} {TOOLS}/hydra_display.py demo",         30, False),
+        ("Rover Navigation", "ArduRover GPS nav and geofencing",
+         f"{PYTHON3} {TOOLS}/rover_nav.py --demo",          30, False),
     ]),
     ("SYSTEM", [
         ("Update Tools",     "git pull + re-copy Lua scripts",
@@ -71,15 +67,13 @@ for _cat_name, _tools in CATEGORIES:
 # CLI shortcut table: shortcut -> label
 SHORTCUTS = {
     "atak":      "ATAK CoT Bridge",
-    "mavlink":   "MAVLink Bridge",
     "cot-test":  "CoT Test Send",
     "airspace":  "Airspace Brief",
     "drop":      "Payload Drop Calc",
-    "rover":     "Rover Navigation",
     "gps":       "GPS Position",
-    "imu":       "IMU Tracker",
+    "mavlink":   "MAVLink Bridge",
     "gps-mon":   "GPS Monitor",
-    "hydra":     "Hydra AI Display",
+    "rover":     "Rover Navigation",
     "update":    "Update Tools",
     "lua":       "Reinstall Lua",
 }
