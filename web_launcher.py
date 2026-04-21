@@ -198,6 +198,109 @@ def save_config(data):
         json.dump(data, f, indent=2)
 
 
+# ── TAK server upstream ──────────────────────────────────────────────────────
+#
+# Optional top-level "tak_server" block in tools.json makes cot_bridge.py fan
+# out to a TAK server in addition to the local UDP listener. The settings UI
+# edits it; the ATAK BRIDGE launch path appends the matching CLI flags.
+
+def _tak_server_cfg():
+    """Return the tak_server block from the active config, or None."""
+    cfg = load_config().get("tak_server")
+    if not cfg or not cfg.get("enabled") or not cfg.get("host") or not cfg.get("port"):
+        return None
+    return cfg
+
+
+def apply_tak_server_flags(cmd):
+    """If the cmd invokes cot_bridge.py, append TAK server flags from config."""
+    if "cot_bridge.py" not in cmd:
+        return cmd
+    cfg = _tak_server_cfg()
+    if not cfg:
+        return cmd
+    extra = ["--tak-server", f"{cfg['host']}:{cfg['port']}"]
+    if cfg.get("tls"):
+        extra.append("--tak-tls")
+        for flag, key in (("--tak-cert", "cert"), ("--tak-key", "key"), ("--tak-ca", "ca")):
+            val = cfg.get(key)
+            if val:
+                extra.extend([flag, val])
+    return cmd + " " + " ".join(shlex.quote(x) for x in extra)
+
+
+def test_tak_server(cfg):
+    """Open a short-lived connection to the TAK server and send one CoT blip.
+
+    Returns (ok, message). Used by /api/tak/test to verify reachability from
+    the settings UI before launching the live bridge.
+    """
+    host = cfg.get("host")
+    port = cfg.get("port")
+    if not host or not port:
+        return False, "Host and port are required"
+    try:
+        port = int(port)
+    except (TypeError, ValueError):
+        return False, f"Invalid port: {port!r}"
+
+    now = time.time()
+    t = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+    stale = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + 30))
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<event version="2.0" uid="AX12-TAK-TEST" type="a-f-A-M-F-Q" '
+        f'time="{t}" start="{t}" stale="{stale}" how="m-g">'
+        f'<point lat="0.0000000" lon="0.0000000" hae="100.0" ce="10.0" le="10.0"/>'
+        f'<detail>'
+        f'<contact callsign="AX12-TAK-TEST"/>'
+        f'<remarks>AX12 launcher connectivity test</remarks>'
+        f'</detail>'
+        f'</event>\n'
+    ).encode("utf-8")
+
+    try:
+        raw = socket.create_connection((host, port), timeout=5.0)
+    except OSError as e:
+        return False, f"Connect failed: {e}"
+
+    try:
+        if cfg.get("tls"):
+            cert = cfg.get("cert")
+            key = cfg.get("key")
+            if not cert or not key:
+                raw.close()
+                return False, "TLS requires cert and key paths"
+            import ssl
+            ca = cfg.get("ca") or None
+            try:
+                ctx = ssl.create_default_context(cafile=ca)
+                ctx.load_cert_chain(certfile=cert, keyfile=key)
+                sock = ctx.wrap_socket(raw, server_hostname=host)
+            except (OSError, ssl.SSLError, FileNotFoundError) as e:
+                raw.close()
+                return False, f"TLS handshake failed: {e}"
+        else:
+            sock = raw
+
+        try:
+            sock.sendall(xml)
+        except OSError as e:
+            return False, f"Send failed: {e}"
+        finally:
+            try:
+                sock.close()
+            except OSError:
+                pass
+        return True, f"Sent test CoT to {host}:{port}"
+    except Exception as e:
+        try:
+            raw.close()
+        except OSError:
+            pass
+        return False, str(e)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 4. PRE-FLIGHT CHECKS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1071,8 +1174,39 @@ function hideSettings() {
 
 function renderSettings(config) {
   const body = document.getElementById('settings-body');
+  if (!config.tak_server) {
+    config.tak_server = {enabled: false, host: '', port: 8087, tls: false, cert: '', key: '', ca: ''};
+  }
   window._settingsConfig = config;
+  const t = config.tak_server;
   let html = '';
+
+  /* ── TAK Server upstream ──────────────────────────────────────── */
+  html += '<div class="settings-cat">';
+  html += '<div class="settings-cat-name">TAK SERVER UPSTREAM</div>';
+  html += '<div class="settings-tool" style="padding:4px 0">';
+  html +=   '<div class="settings-tool-info">';
+  html +=     '<label style="display:flex;align-items:center;gap:8px;cursor:pointer">';
+  html +=       '<input type="checkbox" id="tak-enabled" onchange="toggleTakForm()"' + (t.enabled ? ' checked' : '') + '>';
+  html +=       '<span>Fan out CoT to a TAK server</span></label>';
+  html +=     '<div class="settings-tool-cmd">In addition to the local UDP listener on :4242</div>';
+  html +=   '</div></div>';
+  html += '<div id="tak-form" style="display:' + (t.enabled ? 'block' : 'none') + ';padding-top:8px">';
+  html +=   '<input id="tak-host" placeholder="Host (e.g. tak.example.mil)" value="' + escAttr(t.host || '') + '">';
+  html +=   '<input id="tak-port" placeholder="Port (8087 TCP, 8089 TLS)" type="number" value="' + escAttr(t.port || '') + '">';
+  html +=   '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer">';
+  html +=     '<input type="checkbox" id="tak-tls" onchange="toggleTakTls()"' + (t.tls ? ' checked' : '') + '>';
+  html +=     '<span style="font-size:12px;color:#e4e4e7">Use TLS (mutual, client cert required)</span></label>';
+  html +=   '<div id="tak-tls-fields" style="display:' + (t.tls ? 'block' : 'none') + '">';
+  html +=     '<input id="tak-cert" placeholder="Client cert PEM path" value="' + escAttr(t.cert || '') + '">';
+  html +=     '<input id="tak-key"  placeholder="Client key PEM path (can be same as cert)" value="' + escAttr(t.key || '') + '">';
+  html +=     '<input id="tak-ca"   placeholder="CA bundle PEM path (optional)" value="' + escAttr(t.ca || '') + '">';
+  html +=   '</div>';
+  html +=   '<button class="settings-btn-sm" style="border-color:rgba(0,212,170,0.3);color:#00d4aa" onclick="testTakServer()">TEST CONNECTION</button>';
+  html +=   '<div id="tak-test-msg" class="settings-tool-cmd" style="margin-top:8px"></div>';
+  html += '</div>';
+  html += '</div>';
+
   config.categories.forEach((cat, ci) => {
     html += '<div class="settings-cat"><div class="settings-cat-name">' + escHtml(cat.name) + '</div>';
     cat.tools.forEach((tool, ti) => {
@@ -1135,7 +1269,57 @@ function addTool() {
   renderSettings(cfg);
 }
 
+function collectTakServer() {
+  const t = window._settingsConfig.tak_server || {};
+  const enabledEl = document.getElementById('tak-enabled');
+  if (!enabledEl) return t;
+  t.enabled = enabledEl.checked;
+  const host = document.getElementById('tak-host');
+  const port = document.getElementById('tak-port');
+  const tls = document.getElementById('tak-tls');
+  const cert = document.getElementById('tak-cert');
+  const key = document.getElementById('tak-key');
+  const ca = document.getElementById('tak-ca');
+  if (host) t.host = host.value.trim();
+  if (port) t.port = parseInt(port.value) || 0;
+  if (tls) t.tls = tls.checked;
+  if (cert) t.cert = cert.value.trim();
+  if (key) t.key = key.value.trim();
+  if (ca) t.ca = ca.value.trim();
+  window._settingsConfig.tak_server = t;
+  return t;
+}
+
+function toggleTakForm() {
+  const enabled = document.getElementById('tak-enabled').checked;
+  document.getElementById('tak-form').style.display = enabled ? 'block' : 'none';
+}
+
+function toggleTakTls() {
+  const tls = document.getElementById('tak-tls').checked;
+  document.getElementById('tak-tls-fields').style.display = tls ? 'block' : 'none';
+}
+
+function testTakServer() {
+  const cfg = collectTakServer();
+  const msg = document.getElementById('tak-test-msg');
+  msg.textContent = 'Testing...';
+  msg.style.color = '#71717a';
+  fetch('/api/tak/test', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(cfg)
+  }).then(r => r.json()).then(data => {
+    msg.textContent = data.message || (data.ok ? 'OK' : 'FAIL');
+    msg.style.color = data.ok ? '#00d4aa' : '#ef4444';
+  }).catch(e => {
+    msg.textContent = String(e);
+    msg.style.color = '#ef4444';
+  });
+}
+
 function saveSettings() {
+  collectTakServer();
   fetch('/api/config', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -1152,6 +1336,10 @@ function escHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function escAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 </script>
 </body>
@@ -1415,6 +1603,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if tool.get("long_running"):
                 timeout = None
 
+            # ATAK BRIDGE gets TAK-server flags appended from the tak_server
+            # config block if one is enabled. Other tools pass through.
+            cmd = apply_tak_server_flags(cmd)
+
             # Handle special commands
             if cmd.startswith("__"):
                 output = run_special(cmd)
@@ -1444,6 +1636,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         elif self.path == "/api/setup-configure-atak":
             ok, msg = inject_atak_udp_config()
+            self._json({"ok": ok, "message": msg})
+
+        elif self.path == "/api/tak/test":
+            # Accept an optional ad-hoc config in the request body so the
+            # settings UI can test before saving. Falls back to the persisted
+            # tak_server block when the body is empty.
+            cfg = data if data else (load_config().get("tak_server") or {})
+            ok, msg = test_tak_server(cfg)
             self._json({"ok": ok, "message": msg})
 
         else:

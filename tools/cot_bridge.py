@@ -1,27 +1,37 @@
 #!/data/data/com.termux/files/usr/bin/python3
 """
-MAVLink → CoT Bridge for ATAK
+MAVLink → CoT Bridge for ATAK and TAK Servers
 
 Reads MAVLink telemetry from /dev/ttyS1 (ELRS MAVLink passthrough) and
-broadcasts Cursor-on-Target (CoT) XML to ATAK via UDP on localhost:4242.
+fans out Cursor-on-Target (CoT) XML to one or more sinks:
 
-CoT type: a-f-A-M-F-Q (friendly air military fixed-wing UAV)
+- Local UDP (default)     — e.g. ATAK on the AX12 itself at 127.0.0.1:4242
+- TAK Server over TCP      — newline-framed CoT, persistent with reconnect
+- TAK Server over TLS      — same framing, with client-cert mutual TLS
+
+CoT type: a-f-A-M-F-Q (friendly air military fixed-wing UAV) for fixed-wing,
+a-f-A-M-H-Q for rotary. One failing sink does not block the others.
 
 Usage:
-    su 0 python3 tools/cot_bridge.py              # live from serial
+    su 0 python3 tools/cot_bridge.py              # live serial + local UDP
     su 0 python3 tools/cot_bridge.py --test        # synthetic test data
-    su 0 python3 tools/cot_bridge.py --port 4243   # custom ATAK port
+    su 0 python3 tools/cot_bridge.py --tak-server tak.local:8087
+    su 0 python3 tools/cot_bridge.py --tak-server tak.local:8089 --tak-tls \\
+         --tak-cert cert.pem --tak-key cert.pem --tak-ca ca.pem
 
 Requires root for serial access. Stdlib only.
 """
 
 import argparse
 import os
+import queue
 import select
 import signal
 import socket
+import ssl
 import struct
 import sys
+import threading
 import time
 import uuid
 
@@ -493,6 +503,181 @@ class SyntheticSource:
 
 
 # ===================================================================
+# Sinks — destinations for CoT datagrams
+# ===================================================================
+#
+# The bridge fans out each CoT event to every configured sink. A failure
+# in one sink never blocks or drops delivery to the others. Transport
+# details (datagram vs stream, framing, TLS, reconnect) are encapsulated
+# here so the bridge loop stays simple.
+
+
+class Sink:
+    """Abstract CoT destination. Subclasses implement send/close."""
+
+    name = "sink"
+
+    def send(self, xml_bytes: bytes) -> None:
+        raise NotImplementedError
+
+    def close(self) -> None:
+        pass
+
+
+class UdpSink(Sink):
+    """UDP datagram to a local/multicast ATAK listener. Stateless."""
+
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self.name = f"udp://{host}:{port}"
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    def send(self, xml_bytes: bytes) -> None:
+        self._sock.sendto(xml_bytes, (self.host, self.port))
+
+    def close(self) -> None:
+        try:
+            self._sock.close()
+        except OSError:
+            pass
+
+
+class TcpSink(Sink):
+    """Persistent TCP connection to a TAK Server.
+
+    A background daemon thread owns the socket. Callers of send() put bytes
+    on a bounded queue and return immediately — the bridge loop is never
+    blocked by a slow upstream. The worker drains the queue, writes each
+    event with a trailing newline (TAK Server framing), and reconnects
+    with exponential backoff on any socket error.
+    """
+
+    QUEUE_MAX = 64
+    BACKOFF_MIN = 1.0
+    BACKOFF_MAX = 30.0
+    CONNECT_TIMEOUT = 10.0
+
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self.name = f"tcp://{host}:{port}"
+        self._queue: queue.Queue = queue.Queue(maxsize=self.QUEUE_MAX)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._worker, daemon=True,
+            name=f"sink-{self.name}")
+        self._thread.start()
+
+    def send(self, xml_bytes: bytes) -> None:
+        # Drop oldest if the queue is full. The bridge keeps running even if
+        # the TAK server is unreachable; old positions are stale anyway.
+        try:
+            self._queue.put_nowait(xml_bytes)
+        except queue.Full:
+            try:
+                self._queue.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                self._queue.put_nowait(xml_bytes)
+            except queue.Full:
+                pass
+
+    def close(self) -> None:
+        self._stop.set()
+        # Wake the worker if it's blocked on queue.get
+        try:
+            self._queue.put_nowait(b'')
+        except queue.Full:
+            pass
+
+    def _connect(self) -> socket.socket:
+        """Open a fresh TCP socket. Override for TLS."""
+        sock = socket.create_connection(
+            (self.host, self.port), timeout=self.CONNECT_TIMEOUT)
+        sock.settimeout(None)
+        return sock
+
+    def _worker(self):
+        backoff = self.BACKOFF_MIN
+        sock = None
+        while not self._stop.is_set():
+            if sock is None:
+                try:
+                    print(f"[cot_bridge] {self.name} connecting...")
+                    sock = self._connect()
+                    print(f"[cot_bridge] {self.name} connected")
+                    backoff = self.BACKOFF_MIN
+                except (OSError, ssl.SSLError) as e:
+                    print(f"[cot_bridge] {self.name} connect failed: {e}; "
+                          f"retry in {backoff:.0f}s")
+                    if self._stop.wait(backoff):
+                        break
+                    backoff = min(backoff * 2, self.BACKOFF_MAX)
+                    continue
+
+            try:
+                payload = self._queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            if not payload or self._stop.is_set():
+                break
+
+            try:
+                sock.sendall(payload + b'\n')
+            except (OSError, ssl.SSLError) as e:
+                print(f"[cot_bridge] {self.name} send failed: {e}; reconnecting")
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+                sock = None
+                # Keep the frame if there's room; otherwise drop it. The next
+                # periodic send will carry a fresh position anyway.
+                try:
+                    self._queue.put_nowait(payload)
+                except queue.Full:
+                    pass
+
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
+
+
+class TlsSink(TcpSink):
+    """TCP with TLS (PEM cert/key). Same framing and reconnect as TcpSink.
+
+    Convert a TAK mission-package .p12 to PEM with:
+        openssl pkcs12 -in mp.p12 -out cert.pem -nodes
+    Then pass --tak-cert cert.pem --tak-key cert.pem.
+    """
+
+    def __init__(self, host: str, port: int,
+                 certfile: str, keyfile: str, cafile=None):
+        self.certfile = certfile
+        self.keyfile = keyfile
+        self.cafile = cafile
+        super().__init__(host, port)
+        self.name = f"tls://{host}:{port}"
+
+    def _connect(self) -> socket.socket:
+        ctx = ssl.create_default_context(cafile=self.cafile)
+        ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+        raw = socket.create_connection(
+            (self.host, self.port), timeout=self.CONNECT_TIMEOUT)
+        try:
+            sock = ctx.wrap_socket(raw, server_hostname=self.host)
+        except (OSError, ssl.SSLError):
+            raw.close()
+            raise
+        sock.settimeout(None)
+        return sock
+
+
+# ===================================================================
 # Main Bridge Loop
 # ===================================================================
 
@@ -503,13 +688,11 @@ class CoTBridge:
     maintains current vehicle state, and emits CoT XML at a fixed rate.
     """
 
-    def __init__(self, serial_port: str, baudrate: int, atak_host: str,
-                 atak_port: int, uid: str, send_interval: float,
-                 test_mode: bool):
+    def __init__(self, serial_port: str, baudrate: int, sinks,
+                 uid: str, send_interval: float, test_mode: bool):
         self.serial_port = serial_port
         self.baudrate = baudrate
-        self.atak_host = atak_host
-        self.atak_port = atak_port
+        self.sinks = list(sinks)
         self.uid = uid
         self.send_interval = send_interval
         self.test_mode = test_mode
@@ -517,7 +700,6 @@ class CoTBridge:
         self.running = False
         self.serial_fd = -1
         self.parser = MAVLinkParser()
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         # Current vehicle state
         self.position = None  # dict from decode_global_position_int
@@ -536,10 +718,11 @@ class CoTBridge:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+        sinks_desc = ", ".join(s.name for s in self.sinks) or "none"
         if self.test_mode:
-            print(f"[cot_bridge] TEST MODE — sending synthetic data to "
-                  f"{self.atak_host}:{self.atak_port}")
+            print(f"[cot_bridge] TEST MODE — sending synthetic data to {sinks_desc}")
             self._run_test_mode()
+            self._close_sinks()
             return
 
         # Open serial port
@@ -550,10 +733,10 @@ class CoTBridge:
             print(f"[cot_bridge] Serial open failed: {e}")
             print(f"[cot_bridge] Falling back to synthetic data")
             self._run_test_mode()
+            self._close_sinks()
             return
 
-        print(f"[cot_bridge] Sending CoT to {self.atak_host}:{self.atak_port} "
-              f"every {self.send_interval}s")
+        print(f"[cot_bridge] Sending CoT to {sinks_desc} every {self.send_interval}s")
         print(f"[cot_bridge] UID: {self.uid}")
         print(f"[cot_bridge] Ctrl+C to stop")
 
@@ -563,8 +746,15 @@ class CoTBridge:
             if self.serial_fd >= 0:
                 os.close(self.serial_fd)
                 print(f"[cot_bridge] Closed {self.serial_port}")
-            self.sock.close()
+            self._close_sinks()
             print(f"[cot_bridge] Shutdown complete ({self.frames_parsed} frames parsed)")
+
+    def _close_sinks(self):
+        for sink in self.sinks:
+            try:
+                sink.close()
+            except Exception as e:
+                print(f"[cot_bridge] error closing {sink.name}: {e}")
 
     def _run_serial_mode(self):
         """Read serial data and send CoT."""
@@ -655,17 +845,22 @@ class CoTBridge:
             cot_type=cot_type_for(hb.get('mav_type')),
         )
 
-        try:
-            self.sock.sendto(xml.encode('utf-8'),
-                             (self.atak_host, self.atak_port))
-            lat_s = f"{pos['lat']:.5f}"
-            lon_s = f"{pos['lon']:.5f}"
-            alt_s = f"{pos['alt_msl']:.0f}m"
-            mode = hb.get('flight_mode', '?')
-            print(f"[cot_bridge] CoT sent: {lat_s},{lon_s} {alt_s} "
-                  f"{mode}{suffix}")
-        except OSError as e:
-            print(f"[cot_bridge] UDP send error: {e}")
+        xml_bytes = xml.encode('utf-8')
+        failures = []
+        for sink in self.sinks:
+            try:
+                sink.send(xml_bytes)
+            except Exception as e:
+                failures.append(f"{sink.name}: {e}")
+
+        lat_s = f"{pos['lat']:.5f}"
+        lon_s = f"{pos['lon']:.5f}"
+        alt_s = f"{pos['alt_msl']:.0f}m"
+        mode = hb.get('flight_mode', '?')
+        print(f"[cot_bridge] CoT sent: {lat_s},{lon_s} {alt_s} "
+              f"{mode}{suffix}")
+        for msg in failures:
+            print(f"[cot_bridge] sink error: {msg}")
 
     def _signal_handler(self, signum, frame):
         print(f"\n[cot_bridge] Signal {signum} received, shutting down...")
@@ -676,15 +871,32 @@ class CoTBridge:
 # CLI
 # ===================================================================
 
+def _parse_host_port(value: str, flag: str):
+    """Parse HOST:PORT, returning (host, port_int). Raises ValueError on malformed input."""
+    host, sep, port_str = value.rpartition(':')
+    if not sep or not host or not port_str:
+        raise ValueError(f"{flag} must be HOST:PORT (got {value!r})")
+    try:
+        port = int(port_str)
+    except ValueError as e:
+        raise ValueError(f"{flag} port must be an integer (got {port_str!r})") from e
+    if not (0 < port < 65536):
+        raise ValueError(f"{flag} port out of range: {port}")
+    return host, port
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="MAVLink → CoT bridge for ATAK",
+        description="MAVLink → CoT bridge for ATAK and TAK servers",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  su 0 python3 tools/cot_bridge.py              # live serial\n"
+            "  su 0 python3 tools/cot_bridge.py              # live serial, local UDP\n"
             "  su 0 python3 tools/cot_bridge.py --test        # synthetic data\n"
             "  su 0 python3 tools/cot_bridge.py --uid MyDrone # custom callsign\n"
+            "  su 0 python3 tools/cot_bridge.py --tak-server tak.example:8087\n"
+            "  su 0 python3 tools/cot_bridge.py --tak-server tak.example:8089 \\\n"
+            "        --tak-tls --tak-cert cert.pem --tak-key cert.pem --tak-ca ca.pem\n"
         ),
     )
     parser.add_argument('--port', default='/dev/ttyS1',
@@ -695,6 +907,18 @@ def main():
                         help='ATAK UDP host (default: 127.0.0.1)')
     parser.add_argument('--atak-port', type=int, default=4242,
                         help='ATAK UDP port (default: 4242)')
+    parser.add_argument('--no-local-udp', action='store_true',
+                        help='Skip the local UDP sink (TAK server only)')
+    parser.add_argument('--tak-server', default=None, metavar='HOST:PORT',
+                        help='TAK server upstream (TCP; add --tak-tls for TLS)')
+    parser.add_argument('--tak-tls', action='store_true',
+                        help='Wrap --tak-server with TLS (requires --tak-cert, --tak-key)')
+    parser.add_argument('--tak-cert', default=None,
+                        help='TLS client certificate PEM path')
+    parser.add_argument('--tak-key', default=None,
+                        help='TLS client private key PEM path')
+    parser.add_argument('--tak-ca', default=None,
+                        help='TLS CA bundle PEM path (default: system trust store)')
     parser.add_argument('--uid', default='ELRS-Drone-1',
                         help='CoT UID / callsign (default: ELRS-Drone-1)')
     parser.add_argument('--interval', type=float, default=2.0,
@@ -703,11 +927,31 @@ def main():
                         help='Use synthetic test data instead of serial')
     args = parser.parse_args()
 
+    sinks = []
+    if not args.no_local_udp:
+        sinks.append(UdpSink(args.atak_host, args.atak_port))
+
+    if args.tak_server:
+        try:
+            host, port = _parse_host_port(args.tak_server, '--tak-server')
+        except ValueError as e:
+            parser.error(str(e))
+        if args.tak_tls:
+            if not args.tak_cert or not args.tak_key:
+                parser.error("--tak-tls requires --tak-cert and --tak-key")
+            sinks.append(TlsSink(host, port, args.tak_cert, args.tak_key, args.tak_ca))
+        else:
+            sinks.append(TcpSink(host, port))
+    elif args.tak_tls or args.tak_cert or args.tak_key or args.tak_ca:
+        parser.error("--tak-tls / --tak-cert / --tak-key / --tak-ca require --tak-server")
+
+    if not sinks:
+        parser.error("No sinks configured: drop --no-local-udp or pass --tak-server")
+
     bridge = CoTBridge(
         serial_port=args.port,
         baudrate=args.baud,
-        atak_host=args.atak_host,
-        atak_port=args.atak_port,
+        sinks=sinks,
         uid=args.uid,
         send_interval=args.interval,
         test_mode=args.test,

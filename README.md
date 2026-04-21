@@ -1,6 +1,6 @@
 # AX12 Tactical Tools
 
-The AX12 is an Android radio. Run the CoT bridge on it and your MAVLink telemetry off ELRS shows up in ATAK while you're flying.
+The AX12 is an Android radio. Run the CoT bridge on it and your MAVLink telemetry off ELRS shows up on the COP — the tablet next to you or a TAK server the whole team's on — while you're flying.
 
 Also in here: TAK OSD for the touchscreen, CCIP, 9-line CAS, freq decon, mission timer, preflight checklist. Runs in Termux, stdlib Python only.
 
@@ -38,7 +38,7 @@ tools.json       Tool registry (edit to add/remove/reorder tools)
 
 | Tool | What it does |
 |------|-------------|
-| `cot_bridge.py` | Drone position on ATAK. |
+| `cot_bridge.py` | Drone position on ATAK and TAK servers (TCP/TLS). |
 | `test_cot.py` | Sends a single CoT blip to verify ATAK is listening. |
 | `airspace_check.py` | Offline airspace briefing for the AO |
 | `payload_drop.py` | Drop point calculator |

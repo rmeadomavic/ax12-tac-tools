@@ -7,18 +7,20 @@ Full reference for getting your drone on ATAK from the AX12. Covers both the CoT
 ## Architecture
 
 ```
-Vehicle --RF--> ELRS TX module --> /dev/ttyS1 --> cot_bridge.py --> ATAK (UDP :4242)
-                               \-> Backpack WiFi (UDP :14550) --> mavlink_bridge.py --> QGC (TCP :5760)
+Vehicle --RF--> ELRS TX --> /dev/ttyS1 --> cot_bridge.py --+--> ATAK (UDP :4242)
+                                                           +--> TAK Server (TCP/TLS)
+                         \-> Backpack WiFi (UDP :14550) --> mavlink_bridge.py --> QGC (TCP :5760)
 ```
 
 Two independent data paths run in parallel:
 
-**Serial path — CoT/ATAK**
+**Serial path — CoT/ATAK/TAK Server**
 ELRS MAVLink passthrough delivers raw MAVLink v1/v2 frames from the vehicle
 directly to `/dev/ttyS1` at 460800 baud. `cot_bridge.py` reads those frames,
-decodes `GLOBAL_POSITION_INT` and `HEARTBEAT`, and emits Cursor-on-Target (CoT)
-XML datagrams to ATAK over UDP. No GCS software is involved; the AX12 itself
-acts as the CoT injector.
+decodes `GLOBAL_POSITION_INT` and `HEARTBEAT`, and fans out Cursor-on-Target
+(CoT) XML to any combination of: a local UDP listener (ATAK on this device
+or a nearby tablet), a TAK server over TCP, or a TAK server over mutual TLS.
+No GCS software is involved; the AX12 itself acts as the CoT injector.
 
 **WiFi path — QGC/Mission Planner**
 The ELRS TX Backpack creates a WiFi AP (`10.0.0.1`) and forwards the same
@@ -145,6 +147,12 @@ the bridge automatically falls back to synthetic data and prints a warning.
 | `--baud` | `460800` | Serial baud rate |
 | `--atak-host` | `127.0.0.1` | ATAK UDP destination address |
 | `--atak-port` | `4242` | ATAK UDP destination port |
+| `--no-local-udp` | off | Skip the local UDP sink (TAK server only) |
+| `--tak-server` | — | `HOST:PORT` of a TAK server; adds a TCP sink |
+| `--tak-tls` | off | Wrap `--tak-server` with TLS |
+| `--tak-cert` | — | Client certificate PEM (required for `--tak-tls`) |
+| `--tak-key` | — | Client private key PEM (required for `--tak-tls`) |
+| `--tak-ca` | — | CA bundle PEM; omit to use the system trust store |
 | `--uid` | `ELRS-Drone-1` | CoT UID and callsign displayed in ATAK |
 | `--interval` | `2.0` | Seconds between CoT transmissions |
 | `--test` | off | Use synthetic data instead of serial |
@@ -179,6 +187,97 @@ su 0 python3 tools/cot_bridge.py --atak-host 239.2.3.1
 
 Every ATAK instance on the local network will receive the track simultaneously.
 Requires the network to support IP multicast (most WiFi APs do).
+
+---
+
+## TAK Server Upstream
+
+Local UDP puts the drone on whichever tablet is on the same wire. A **TAK
+server** puts the drone on every enrolled client's COP — that's the difference
+between "my tablet" and "team SA". The bridge fans out to both in parallel, so
+you don't give up the local path when you add the server.
+
+### When to use which
+
+| Sink | Transport | Auth | Use it for |
+|------|-----------|------|------------|
+| UDP (default) | datagram, no ack | none | Local ATAK on the AX12 or a nearby tablet |
+| TAK server, plain | TCP, newline-framed | none | Dev / lab / same-LAN FreeTAKServer |
+| TAK server, TLS | TCP + mutual TLS | client cert | Anything fielded, anything over the internet |
+
+### Quick test with FreeTAKServer
+
+Spin an FTS container on a laptop on the same LAN as the AX12:
+
+```bash
+docker run --rm -p 8087:8087 -p 8443:8443 fts4/freetakserver:latest
+```
+
+Then on the AX12:
+
+```bash
+tac atak                                                   # still sends to local UDP too
+# or direct:
+su 0 python3 tools/cot_bridge.py --test \
+    --tak-server <laptop-ip>:8087
+```
+
+Point a second ATAK client (phone, laptop, second AX12) at the same FTS. The
+null-island synthetic track shows up on both.
+
+### TLS with mission-package certs
+
+Most deployed TAK servers speak mutual TLS on 8089. The enrollment bundle is a
+`.p12` file inside the mission package. Convert it to PEM once:
+
+```bash
+# Unzip the mission package, find the .p12, then:
+openssl pkcs12 -in user.p12 -out cert.pem -nodes -password pass:atakatak
+
+# Repeat for the truststore if your server uses a private CA:
+openssl pkcs12 -in truststore.p12 -out ca.pem -nodes -cacerts -password pass:atakatak
+```
+
+The resulting PEMs can live anywhere readable — a common spot is
+`/sdcard/tak/mp/`. Pass them to the bridge:
+
+```bash
+su 0 python3 tools/cot_bridge.py \
+    --tak-server tak.example.mil:8089 --tak-tls \
+    --tak-cert /sdcard/tak/mp/cert.pem \
+    --tak-key  /sdcard/tak/mp/cert.pem \
+    --tak-ca   /sdcard/tak/mp/ca.pem
+```
+
+Cert and key can be the same file when `openssl pkcs12 -nodes` keeps both
+in one PEM. Omit `--tak-ca` to trust the system store (usually not what you
+want for a private TAK).
+
+### Launcher settings
+
+The web launcher's Settings page (**localhost:8080** → gear icon) has a
+**TAK SERVER UPSTREAM** block: enable, host, port, TLS toggle, cert/key/CA
+paths, and a **TEST CONNECTION** button that opens a socket and sends one
+CoT blip so you can verify reachability before arming a drone.
+
+When enabled, the ATAK BRIDGE tile appends the right flags automatically —
+no need to re-edit `tools.json` every time.
+
+### What happens if the server goes down
+
+The TCP sink runs on its own thread with a bounded send queue (drops oldest on
+overflow) and exponential reconnect (1 → 2 → 4 → 8 → 16 → 30s). The bridge
+loop itself never blocks on a slow or dead upstream, and the local UDP path
+keeps going. You'll see reconnect lines in the bridge output until the server
+is reachable again.
+
+### Disabling the local UDP sink
+
+When the only consumer is a TAK server, drop the UDP fan-out:
+
+```bash
+su 0 python3 tools/cot_bridge.py --no-local-udp --tak-server ...
+```
 
 ---
 
