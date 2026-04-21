@@ -1,18 +1,21 @@
 # AX12 Tactical Tools — Python
 
-Python tools for tactical UxS operations. Stdlib only, runs under Termux. Most require root (`su 0`).
+Stdlib only, runs under Termux. Most require root (`su 0`).
 
-## Tools
+## Core — flight kit
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| `cot_bridge.py` | MAVLink-to-CoT bridge for ATAK | `su 0 python3 tools/cot_bridge.py` |
-| `test_cot.py` | CoT test sender | `python3 tools/test_cot.py` |
-| `mavlink_bridge.py` | QGC/Mission Planner bridge via ELRS Backpack | `python3 tools/mavlink_bridge.py bridge` |
-| `hydra_display.py` | AI object detection telemetry client | `python3 tools/hydra_display.py demo` |
-| `airspace_check.py` | Offline airspace restriction briefing | `python3 tools/airspace_check.py brief` |
-| `payload_drop.py` | Aerial drop point calculator | `python3 tools/payload_drop.py calc --alt 50 --speed 10` |
-| `rover_nav.py` | ArduRover GPS navigation and geofencing | `python3 tools/rover_nav.py --demo` |
-| `imu_tracker.py` | ICM-42607 IMU head tracking | `su 0 python3 tools/imu_tracker.py` |
-| `gps_tool.py` | GPS position from MT6631 GNSS | `su 0 python3 tools/gps_tool.py position` |
-| `gps_position.py` | GPS display with NMEA and satellite info | `su 0 python3 tools/gps_position.py` |
+| `cot_bridge.py` | MAVLink-to-CoT bridge for ATAK. The main one. | `su 0 python3 tools/cot_bridge.py` |
+| `test_cot.py` | First-run check: does ATAK see you? | `python3 tools/test_cot.py` |
+| `airspace_check.py` | Offline airspace briefing for the AO | `python3 tools/airspace_check.py brief` |
+| `payload_drop.py` | Drop point calculator | `python3 tools/payload_drop.py calc --alt 50 --speed 10` |
+| `gps_tool.py` | Current GPS fix from the MT6631 | `su 0 python3 tools/gps_tool.py position` |
+
+## Extras — dev, diagnostics, platform-specific
+
+| Tool | Purpose | Usage |
+|------|---------|-------|
+| `mavlink_bridge.py` | Expose MAVLink to a laptop GCS (QGC, Mission Planner). Tuning/bench. | `python3 tools/mavlink_bridge.py bridge` |
+| `gps_position.py` | Continuous GPS with NMEA and satellite info. Diagnostic. | `su 0 python3 tools/gps_position.py` |
+| `rover_nav.py` | ArduRover GPS nav and geofencing. UGV only. | `python3 tools/rover_nav.py --demo` |
