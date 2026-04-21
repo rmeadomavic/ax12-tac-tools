@@ -20,12 +20,26 @@ echo "================================================"
 echo
 echo "[1/3] MAVLink bridge (UDP 14550 <-> TCP 5760)..."
 port_in_use() { (exec 3<>/dev/tcp/127.0.0.1/5760) 2>/dev/null && return 0 || return 1; }
+pid_is_bridge() {
+    local pid=$1
+    [ -n "$pid" ] || return 1
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "mavlink_bridge.py"
+}
 
 if port_in_use; then
     echo "  TCP 5760 already bound -- assuming bridge is running"
-elif [ -f "$BRIDGE_PID" ] && kill -0 "$(cat $BRIDGE_PID)" 2>/dev/null; then
-    echo "  Bridge already running (PID $(cat $BRIDGE_PID))"
 else
+    # Clean up a prior bridge if the PID file points at one. Don't trust
+    # the PID file alone -- the port check above is the source of truth
+    # for "already running".
+    if [ -f "$BRIDGE_PID" ]; then
+        old_pid=$(cat "$BRIDGE_PID" 2>/dev/null)
+        if pid_is_bridge "$old_pid"; then
+            kill "$old_pid" 2>/dev/null
+            sleep 1
+        fi
+    fi
     nohup $PY $BRIDGE bridge > "$BRIDGE_LOG" 2>&1 &
     echo $! > "$BRIDGE_PID"
     disown 2>/dev/null || true
@@ -52,19 +66,19 @@ fi
 
 echo
 echo "[3/3] Launching QGroundControl..."
-if su 0 pm list packages 2>/dev/null | grep -qx "package:$QGC_PKG"; then
-    if su 0 am start -n "$QGC_ACT" >/dev/null 2>&1; then
-        echo "  QGC launched"
-    elif am start -n "$QGC_ACT" >/dev/null 2>&1; then
-        echo "  QGC launched (no root)"
-    else
-        echo "  FAIL: am start refused the activity"
-        exit 2
-    fi
+# Try root am start first, fall back to non-root. am start exits non-zero
+# if the activity doesn't exist, so a missing QGC surfaces there without
+# needing a separate package query (pm list packages is root-gated on
+# Android 9 and silently returns nothing without su).
+if su 0 am start -n "$QGC_ACT" >/dev/null 2>&1; then
+    echo "  QGC launched"
+elif am start -n "$QGC_ACT" >/dev/null 2>&1; then
+    echo "  QGC launched (no root)"
 else
-    echo "  QGC is not installed."
-    echo "  APK: github.com/Radiomaster-RC/qgroundcontrol (release v5.0.8+)"
-    exit 3
+    echo "  FAIL: could not launch QGC"
+    echo "  If QGC is not installed, get the RadioMaster build:"
+    echo "    github.com/Radiomaster-RC/qgroundcontrol (release v5.0.8+)"
+    exit 2
 fi
 
 echo
