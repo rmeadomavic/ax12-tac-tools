@@ -26,3 +26,12 @@ Thumbs.db
 .claude/
 .superpowers/
 docs/superpowers/
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*_secret
+*_token
