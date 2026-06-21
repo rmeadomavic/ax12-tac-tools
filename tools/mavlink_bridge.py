@@ -511,9 +511,8 @@ class MAVLinkBuilder:
                 throttle=0, alt=0.0, climb=0.0):
         """Build a VFR_HUD message."""
         payload = struct.pack('<ffffhH',
-                              airspeed, groundspeed, float(heading),
-                              float(throttle),
-                              int(alt), int(climb * 100))
+                              airspeed, groundspeed, alt, climb,
+                              int(heading) % 360, min(max(int(throttle), 0), 65535))
         return self.build_v2(MSG_VFR_HUD, payload)
 
     def gps_raw_int(self, lat, lon, alt, fix_type=3, sats=12):
@@ -1336,7 +1335,7 @@ def main():
                           help='ELRS Backpack IP (default: 10.0.0.1)')
     p_bridge.add_argument('--udp-port', type=int, default=14550,
                           help='MAVLink UDP port (default: 14550)')
-    p_bridge.add_argument('--tcp-host', default='127.0.0.1',
+    p_bridge.add_argument('--tcp-host', default='0.0.0.0',
                           help='TCP listen address (default: 127.0.0.1)')
     p_bridge.add_argument('--tcp-port', type=int, default=5760,
                           help='TCP listen port (default: 5760)')
@@ -1362,7 +1361,7 @@ def main():
                        help='Serial port (default: /dev/ttyS1)')
     p_ser.add_argument('--baud', type=int, default=460800,
                        help='Serial baud rate (default: 460800)')
-    p_ser.add_argument('--tcp-host', default='127.0.0.1',
+    p_ser.add_argument('--tcp-host', default='0.0.0.0',
                        help='TCP listen address (default: 127.0.0.1)')
     p_ser.add_argument('--tcp-port', type=int, default=5760,
                        help='TCP listen port (default: 5760)')
@@ -1372,7 +1371,7 @@ def main():
     # Test mode
     p_test = sub.add_parser('test',
                             help='Synthetic MAVLink data on TCP 5760')
-    p_test.add_argument('--tcp-host', default='127.0.0.1',
+    p_test.add_argument('--tcp-host', default='0.0.0.0',
                         help='TCP listen address (default: 127.0.0.1)')
     p_test.add_argument('--tcp-port', type=int, default=5760,
                         help='TCP listen port (default: 5760)')
