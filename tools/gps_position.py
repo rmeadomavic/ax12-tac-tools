@@ -2,8 +2,10 @@
 """
 GPS Position Display Tool for RadioMaster AX12
 ===============================================
-Reads GPS position from the MT6631 GNSS chipset via Android location services
-and NMEA data from the MediaTek GPS daemon.
+Reads location from Android location services and NMEA from the MediaTek GPS
+daemon. NOTE: the MT6631 GNSS core acquires zero satellites on the AX12 — no
+antenna is populated on the PCB. Any position shown comes from WiFi/network
+providers, not satellites; NMEA shows sats in view (almanac) with blank SNR.
 
 Usage:
     python3 gps_position.py              # Single position snapshot
@@ -14,17 +16,19 @@ Usage:
     python3 gps_position.py --start      # Start GPS test (activates GNSS radio)
     python3 gps_position.py --stop       # Stop GPS test
 
-The AX12 is a drone transmitter - GPS on the transmitter enables
-pilot position tracking for GCS integration.
+The AX12 is a drone transmitter. Onboard GPS would have enabled pilot
+self-position for GCS integration, but the GNSS antenna is not populated, so
+this does not work in the field. Operator self-position needs an external GPS
+(USB-OTG or wired RX) or a board-level antenna mod.
 
-GPS Hardware: MT6631 combo chip (WiFi/BT/GPS/FM)
+GPS Hardware: MT6631 combo chip (WiFi/BT/GPS/FM) — GNSS unusable, no antenna
 Device nodes: /dev/stpgps, /dev/gps_emi
 GPS daemon: mnld + mtk_agpsd
 Test app: com.mediatek.ygps (MediaTek YGPS)
 
-Note: GPS test must be started (--start or via YGPS app) before
-NMEA data flows. Position from network provider (WiFi) is always
-available even without GPS fix.
+Note: starting the GPS test (--start or YGPS) powers the GNSS engine, but with
+no antenna it still acquires zero satellites. Only the network (WiFi) position
+is ever available, and never a true satellite fix.
 """
 
 import subprocess
@@ -266,7 +270,7 @@ def stop_gps_test():
 
 
 def display_position(as_json=False):
-    """Display current GPS position."""
+    """Display current location (network/WiFi — GNSS has no antenna, zero sats)."""
     # Get from Android location service
     locations = get_location_dumpsys()
 

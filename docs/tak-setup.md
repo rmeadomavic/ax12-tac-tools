@@ -288,10 +288,15 @@ su 0 python3 tools/cot_bridge.py --no-local-udp --tak-server ...
 | Code | Meaning |
 |------|---------|
 | `a-f-A-M-F-Q` | Friendly / Air / Military / Fixed-wing / UAV — used for the vehicle |
-| `a-f-G-U-C` | Friendly / Ground / Unit / Combat — used for the pilot position |
 
 The `a-f-A-M-F-Q` breakdown: `a` = atom (concrete entity), `f` = friend,
 `A` = air, `M` = military, `F` = fixed-wing, `Q` = UAV/drone.
+
+> **Note:** `cot_bridge.py` currently emits only the vehicle (drone) track from
+> MAVLink telemetry. A pilot/operator self-position marker (`a-f-G-U-C`) is not
+> implemented — and would require operator GPS, which the AX12 lacks (no GNSS
+> antenna populated; see ax12-research hardware map). Self-position would need an
+> external/USB GPS before this could be added.
 
 ### What ATAK displays
 

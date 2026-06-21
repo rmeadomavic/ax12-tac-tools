@@ -53,8 +53,8 @@
           "timeout": 30
         },
         {
-          "label": "GPS",
-          "description": "Current GPS fix",
+          "label": "NET LOCATION",
+          "description": "Network/WiFi position (no GNSS antenna - not a satellite fix)",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_tool.py position",
           "shortcut": "gps",
           "requires": ["root"],
@@ -75,8 +75,8 @@
           "long_running": true
         },
         {
-          "label": "GPS MONITOR",
-          "description": "Continuous GPS with NMEA and satellite info",
+          "label": "GNSS DIAG",
+          "description": "GNSS diagnostic - shows zero satellites (no antenna populated)",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_position.py",
           "shortcut": "gps-mon",
           "requires": ["root"],

@@ -6,7 +6,7 @@ Operational UxS tools for the RadioMaster AX12.
 - Android 9, MediaTek MT8788 SoC, ELRS LR1121 RF module
 - ELRS Backpack WiFi for MAVLink at 10.0.0.1:14550
 - Root access via `su 0` (factory userdebug build)
-- GPS via MT6631 GNSS chipset
+- GPS: MT6631 GNSS core present but NO antenna populated — zero satellites, unusable in the field (network/WiFi location only). Operator self-position needs external/USB GPS or a board mod.
 - IMU: ICM-42607 (driver broken in current firmware)
 
 ## Repo

@@ -76,7 +76,7 @@ Or tap UPDATE in the web UI. Pulls latest code and re-copies Lua scripts.
 | Problem | Fix |
 |---------|-----|
 | `su 0` permission denied | Check `/system/xbin/su` exists. Restart Termux. |
-| No GPS fix | Go outside. Wait 60s for cold start. |
+| No GPS fix | Expected — the AX12 has no GPS antenna populated, so it never gets a satellite fix. `Net Location` returns WiFi/network position only. Operator self-position in the field needs an external/USB GPS. |
 | Serial port busy | Close Flyshark. ATAK bridge uses ttyS1 (separate from Flyshark's ttyS0). |
 | `tac` not found | `source ~/.bashrc` or reopen Termux. |
 | Packages fail | `pkg update && pkg upgrade` |

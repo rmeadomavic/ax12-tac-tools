@@ -42,14 +42,14 @@ tools.json       Tool registry (edit to add/remove/reorder tools)
 | `test_cot.py` | Sends a single CoT blip to verify ATAK is listening. |
 | `airspace_check.py` | Offline airspace briefing for the AO |
 | `payload_drop.py` | Drop point calculator |
-| `gps_tool.py` | Current GPS fix |
+| `gps_tool.py` | Network/WiFi location (no GNSS antenna on board — not a satellite fix) |
 
 **Extras** — dev, diagnostics, platform-specific:
 
 | Tool | What it does |
 |------|-------------|
 | `mavlink_bridge.py` | Expose MAVLink to laptop GCS (QGC, Mission Planner). Tuning/bench. |
-| `gps_position.py` | Continuous GPS with NMEA and sat info. Diagnostic. |
+| `gps_position.py` | GNSS diagnostic — confirms zero satellites (no antenna populated). Diagnostic. |
 | `rover_nav.py` | ArduRover GPS nav and geofencing. UGV only. |
 
 ### Lua Scripts (Touchscreen)
