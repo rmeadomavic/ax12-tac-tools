@@ -68,16 +68,27 @@ def heartbeat_payload(custom_mode, mav_type, base_mode):
 
 
 def sys_status_payload(voltage_v, current_a, remaining_pct):
-    """SYS_STATUS (msg 1) payload, 19 bytes (the fields the decoder reads)."""
+    """SYS_STATUS (msg 1) payload in true MAVLink wire order, 31 bytes.
+
+    Fields are size-sorted on the wire: three u32 sensor masks, then all eight
+    u16s (load, voltage, drop_rate_comm, errors_comm, errors_count1..4), then
+    current_battery (i16), then battery_remaining (i8).
+    """
     return struct.pack(
-        "<IIIHHhb",
+        "<IIIHHHHHHHHhb",
         0x0003FFFF,
         0x0003FFFF,
         0x0003FFFF,  # sensors present / enabled / health
         50,  # load, 5.0%
-        int(round(voltage_v * 1000)),
-        int(round(current_a * 100)),
-        remaining_pct,
+        int(round(voltage_v * 1000)),  # voltage_battery mV
+        0,  # drop_rate_comm
+        0,  # errors_comm
+        0,
+        0,
+        0,
+        0,  # errors_count1..4
+        int(round(current_a * 100)),  # current_battery cA
+        remaining_pct,  # battery_remaining %
     )
 
 

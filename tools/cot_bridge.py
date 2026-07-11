@@ -336,28 +336,37 @@ def decode_heartbeat(payload: bytes) -> dict:
 
 
 def decode_sys_status(payload: bytes) -> dict:
-    """Decode SYS_STATUS (msg 1) — battery voltage / current / remaining.
+    """Decode SYS_STATUS (msg 1): battery voltage / current / remaining.
 
-    Payload layout (first 19 bytes used):
-        uint32 onboard_control_sensors_present
-        uint32 onboard_control_sensors_enabled
-        uint32 onboard_control_sensors_health
-        uint16 load                 (0.1%)
-        uint16 voltage_battery      (mV)
-        int16  current_battery      (cA, -1 if unknown)
-        int8   battery_remaining    (%, -1 if unknown)
+    MAVLink orders payload fields by descending type size on the wire, not by
+    declaration order, so the battery fields are NOT contiguous with voltage:
+
+        off  type   field
+        0    u32    onboard_control_sensors_present
+        4    u32    onboard_control_sensors_enabled
+        8    u32    onboard_control_sensors_health
+        12   u16    load
+        14   u16    voltage_battery      (mV)
+        16   u16    drop_rate_comm
+        18   u16    errors_comm
+        20   u16    errors_count1..4     (4 x u16 at 20/22/24/26)
+        28   i16    current_battery      (cA, -1 unknown)
+        30   i8     battery_remaining    (%, -1 unknown)
     """
-    if len(payload) < 18:
+    if len(payload) < 16:
         return {}
 
-    fields = struct.unpack('<IIIHHh', payload[:18])
+    voltage = struct.unpack_from('<H', payload, 14)[0] / 1000.0
+    current = -1.0
     remaining = -1
-    if len(payload) >= 19:
-        remaining = struct.unpack('b', payload[18:19])[0]
+    if len(payload) >= 30:
+        current = struct.unpack_from('<h', payload, 28)[0] / 100.0
+    if len(payload) >= 31:
+        remaining = struct.unpack_from('<b', payload, 30)[0]
 
     return {
-        'voltage': fields[4] / 1000.0,
-        'current': fields[5] / 100.0,
+        'voltage': voltage,
+        'current': current,
         'battery_remaining': remaining,
     }
 
