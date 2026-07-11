@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README now leads with the CoT bridge (what it does, how to run/test/auto-start it) and drops the exhaustive per-tool tables for a short "also in here" list.
 
 ### Removed
+- **Collapse to the CoT bridge.** Removed the entire `lua/` touchscreen suite and the non-bridge Python tools (`gps_tool.py`, `payload_drop.py`, `rover_nav.py`, `airspace_check.py`), and de-registered them everywhere they were referenced (`tools.json`, `launcher.py`, `web_launcher.py`, `install.sh`, `shortcuts/`, `docs/`, and CI). The repo is now strictly the AX12→COP bridge: CoT bridge, ATAK test, MAVLink GCS, and the GNSS diagnostic.
 - Three dead Lua scripts that need hardware the AX12 lacks: `mgrs-tool.lua` and `site-manager.lua` (both require the operator's own GNSS fix; no GPS antenna is populated) and `g-force.lua` (accelerometer driver is broken in stock firmware). De-registered from `lua/README.md` and `GETTING_STARTED.md`.
 
 ### Fixed

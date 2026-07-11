@@ -39,8 +39,6 @@ ICON_B64 = "iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAHQUlEQVR4nO3da24bRxAE
 ICON_PNG = base64.b64decode(ICON_B64)
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 PYTHON3 = "/data/data/com.termux/files/usr/bin/python3"
-LUA_SRC = os.path.join(REPO_DIR, "lua")
-LUA_DEST = "/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS"
 
 # User config overrides the default
 USER_CONFIG = os.path.expanduser("~/.config/ax12-tac-tools/tools.json")
@@ -370,36 +368,12 @@ def run_special(cmd):
         if r.stderr:
             lines.append(r.stderr)
         if r.returncode == 0:
-            lines.append("\nRe-installing Lua scripts...")
-            lines.append(_copy_lua())
+            lines.append("\nRepo updated.")
         else:
             lines.append(f"\ngit pull failed (exit {r.returncode})")
         return "\n".join(lines)
 
-    elif cmd == "__lua__":
-        return _copy_lua()
-
     return "Unknown special command"
-
-
-def _copy_lua():
-    """Copy lua scripts and return status string."""
-    lines = []
-    try:
-        lua_files = [f for f in os.listdir(LUA_SRC) if f.endswith(".lua")]
-    except Exception as e:
-        return f"Error listing lua dir: {e}"
-    ok = 0
-    for fname in lua_files:
-        src = os.path.join(LUA_SRC, fname)
-        r = subprocess.run(["su", "0", "cp", src, LUA_DEST + "/"],
-                           capture_output=True, timeout=10)
-        if r.returncode == 0:
-            ok += 1
-        else:
-            lines.append(f"FAIL: {fname}")
-    lines.append(f"\n{ok}/{len(lua_files)} Lua scripts installed")
-    return "\n".join(lines)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -657,7 +631,7 @@ def build_page():
     batt, uptime = get_status()
     buttons_html = ""
     for cat in config.get("categories", []):
-        buttons_html += f'<div class="cat">\n'
+        buttons_html += '<div class="cat">\n'
         buttons_html += f'<div class="cat-hdr">{html_mod.escape(cat["name"])}</div>\n'
         buttons_html += '<div class="grid">\n'
         for tool in cat.get("tools", []):
@@ -1689,8 +1663,8 @@ def main():
     # Bug fix: bind to 127.0.0.1 (localhost only), not 0.0.0.0
     server = ThreadedServer(("127.0.0.1", port), Handler)
     print(f"[tac-web] Serving on http://localhost:{port}")
-    print(f"[tac-web] Bookmark this URL to your home screen")
-    print(f"[tac-web] Ctrl+C to stop")
+    print("[tac-web] Bookmark this URL to your home screen")
+    print("[tac-web] Ctrl+C to stop")
 
     try:
         server.serve_forever()

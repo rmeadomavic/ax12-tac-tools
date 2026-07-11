@@ -172,34 +172,6 @@ else
     ok "Repo cloned to $REPO_DIR"
 fi
 
-# Copy Lua scripts
-LUA_DEST="/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS"
-LUA_SRC="$REPO_DIR/lua"
-
-info "Installing Lua scripts to $LUA_DEST..."
-
-if su 0 mkdir -p "$LUA_DEST" 2>/dev/null; then
-    ok "Lua destination directory ready"
-else
-    fail "Could not create $LUA_DEST — root access required"
-    info "Run manually: su 0 mkdir -p $LUA_DEST"
-fi
-
-LUA_COUNT=0
-LUA_FAIL=0
-for lua_file in "$LUA_SRC"/*.lua; do
-    [ -f "$lua_file" ] || continue
-    fname=$(basename "$lua_file")
-    if su 0 cp "$lua_file" "$LUA_DEST/$fname" 2>/dev/null; then
-        ok "  $fname"
-        LUA_COUNT=$((LUA_COUNT + 1))
-    else
-        fail "  $fname (copy failed)"
-        LUA_FAIL=$((LUA_FAIL + 1))
-    fi
-done
-info "$LUA_COUNT Lua scripts installed, $LUA_FAIL failed"
-
 # Copy default tools config if user doesn't have one
 USER_CONFIG="$HOME/.config/ax12-tac-tools/tools.json"
 if [ -f "$USER_CONFIG" ]; then
@@ -305,14 +277,6 @@ if [ -f "$REPO_DIR/launcher.py" ]; then
     run_test "launcher.py present" ok "$REPO_DIR/launcher.py"
 else
     run_test "launcher.py present" fail "not found at $REPO_DIR/launcher.py"
-fi
-
-# Lua files in place
-LUA_INSTALLED=$(su 0 sh -c "ls '$LUA_DEST'/*.lua 2>/dev/null | wc -l" || echo 0)
-if [ "$LUA_INSTALLED" -gt 0 ]; then
-    run_test "Lua files installed" ok "$LUA_INSTALLED files in $LUA_DEST"
-else
-    run_test "Lua files installed" fail "no .lua files found in $LUA_DEST"
 fi
 
 # /dev/ttyS0 exists (UART for UMBUS)

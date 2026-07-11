@@ -41,33 +41,6 @@
           "requires": [],
           "long_running": false,
           "timeout": 20
-        },
-        {
-          "label": "AIRSPACE",
-          "description": "Pre-flight airspace restriction check",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/airspace_check.py brief",
-          "shortcut": "airspace",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 30
-        },
-        {
-          "label": "PAYLOAD DROP",
-          "description": "Aerial drop point calculator",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/payload_drop.py interactive",
-          "shortcut": "drop",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 30
-        },
-        {
-          "label": "NET LOCATION",
-          "description": "Network/WiFi position (no GNSS antenna - not a satellite fix)",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_tool.py position",
-          "shortcut": "gps",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 15
         }
       ]
     },
@@ -81,15 +54,6 @@
           "shortcut": "gps-mon",
           "requires": ["root"],
           "long_running": true
-        },
-        {
-          "label": "ROVER NAV",
-          "description": "ArduRover GPS nav and geofencing (UGV)",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py demo",
-          "shortcut": "rover",
-          "requires": [],
-          "long_running": false,
-          "timeout": 30
         }
       ]
     },
@@ -98,21 +62,12 @@
       "tools": [
         {
           "label": "UPDATE",
-          "description": "Pull latest code and re-copy Lua scripts",
+          "description": "Pull latest code",
           "cmd": "__update__",
           "shortcut": "update",
           "requires": [],
           "long_running": false,
           "timeout": 60
-        },
-        {
-          "label": "REINSTALL LUA",
-          "description": "Re-copy Lua scripts to Flyshark",
-          "cmd": "__lua__",
-          "shortcut": "lua",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 30
         }
       ]
     }

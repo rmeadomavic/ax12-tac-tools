@@ -56,7 +56,6 @@ Needs the Termux:Boot app from F-Droid. Delete the file to turn it off.
 ## Also in here
 
 - `mavlink_bridge.py` serves MAVLink over TCP to QGC or Mission Planner on a laptop.
-- Lua touchscreen scripts: TAK OSD, CCIP, 9-line CAS, freq decon, mission timer, preflight. Full list in [lua/README.md](lua/README.md).
 - A web launcher on `localhost:8080` and a `tac` CLI for SSH use.
 
 Runs in Termux, stdlib Python only. The bridge is the point; the rest is along for the ride.

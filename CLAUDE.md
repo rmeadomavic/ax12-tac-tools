@@ -11,13 +11,11 @@ Operational UxS tools for the RadioMaster AX12.
 
 ## Repo
 - Published at github.com/rmeadomavic/ax12-tac-tools, branch `main`
-- Structure: `tools/` (Python), `lua/` (Lua scripts), `scripts/` (shell), `docs/`
+- Structure: `tools/` (Python), `scripts/` (shell), `docs/`
 - Related: github.com/rmeadomavic/ax12-research (protocol research, hardware docs)
 - Native `.so` and `.apk` files are gitignored
 
 ## Development Rules
 - All Python scripts require root: `su 0 python3 script.py`
 - Python tools use stdlib only — no external dependencies
-- Lua scripts follow EdgeTX convention: `-- TNS|Name|TNE` header, `return { init=init, run=run }`
-- Lua install path: `/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS/`
 - Preserve existing code patterns when editing tools
