@@ -164,7 +164,7 @@ def _about():
         print(f"  Version : {r.stdout.strip()}")
     except Exception as e:
         print(f"  Version : (git error: {e})")
-    print(f"  Repo    : https://github.com/rmeadomavic/ax12-tac-tools")
+    print("  Repo    : https://github.com/rmeadomavic/ax12-tac-tools")
     print(f"  Python  : {sys.version.split()[0]}")
     py_n, lua_n = tool_counts()
     print(f"  Tools   : {py_n} Python tools | {lua_n} Lua scripts")
