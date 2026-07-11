@@ -19,39 +19,25 @@ import time
 PYTHON3 = "/data/data/com.termux/files/usr/bin/python3"
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.join(REPO_DIR, "tools")
-LUA_SRC = os.path.join(REPO_DIR, "lua")
-LUA_DEST = "/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS"
 
 # Tool registry: (label, description, cmd, timeout_sec, needs_root)
 # timeout_sec=0 means no timeout (None passed to subprocess)
 CATEGORIES = [
-    ("TAK", [
-        ("ATAK CoT Bridge",  "Stream drone position to ATAK map",
+    ("BRIDGE", [
+        ("CoT Bridge",       "Aircraft position to ATAK and TAK. Start here.",
          f"su 0 {PYTHON3} {TOOLS}/cot_bridge.py",        0,  True),
-        ("CoT Test Send",    "Send one test blip to verify ATAK",
+        ("ATAK Test",        "Send one CoT blip to verify ATAK is listening",
          f"{PYTHON3} {TOOLS}/test_cot.py",                15, False),
-    ]),
-    ("FLIGHT OPS", [
-        ("Airspace Brief",   "Pre-flight airspace restriction check",
-         f"su 0 {PYTHON3} {TOOLS}/airspace_check.py brief", 30, True),
-        ("Payload Drop Calc","Aerial drop point calculator",
-         f"su 0 {PYTHON3} {TOOLS}/payload_drop.py interactive", 30, True),
-        ("Net Location",     "Network/WiFi position (no GNSS antenna - not a sat fix)",
-         f"su 0 {PYTHON3} {TOOLS}/gps_tool.py position",    15, True),
+        ("MAVLink GCS",      "Serve MAVLink to a laptop GCS (QGC, Mission Planner)",
+         f"{PYTHON3} {TOOLS}/mavlink_bridge.py bridge",   0,  False),
     ]),
     ("UTILITIES", [
-        ("MAVLink Bridge",   "Connect QGC/Mission Planner via ELRS",
-         f"{PYTHON3} {TOOLS}/mavlink_bridge.py bridge",   0,  False),
         ("GNSS Diag",        "GNSS diagnostic - shows zero sats (no antenna)",
          f"su 0 {PYTHON3} {TOOLS}/gps_position.py",         0,  True),
-        ("Rover Navigation", "ArduRover GPS nav and geofencing",
-         f"{PYTHON3} {TOOLS}/rover_nav.py demo",          30, False),
     ]),
     ("SYSTEM", [
-        ("Update Tools",     "git pull + re-copy Lua scripts",
+        ("Update Tools",     "git pull latest code",
          "__update__",  60, False),
-        ("Reinstall Lua",    "Re-copy Lua scripts to Flyshark",
-         "__lua__",     30, False),
         ("About",            "Version, repo URL, credits",
          "__about__",   0,  False),
     ]),
@@ -66,16 +52,11 @@ for _cat_name, _tools in CATEGORIES:
 
 # CLI shortcut table: shortcut -> label
 SHORTCUTS = {
-    "atak":      "ATAK CoT Bridge",
-    "cot-test":  "CoT Test Send",
-    "airspace":  "Airspace Brief",
-    "drop":      "Payload Drop Calc",
-    "gps":       "Net Location",
-    "mavlink":   "MAVLink Bridge",
+    "atak":      "CoT Bridge",
+    "cot-test":  "ATAK Test",
+    "mavlink":   "MAVLink GCS",
     "gps-mon":   "GNSS Diag",
-    "rover":     "Rover Navigation",
     "update":    "Update Tools",
-    "lua":       "Reinstall Lua",
 }
 
 
@@ -113,16 +94,11 @@ def find_item_by_label(label):
 
 
 def tool_counts():
-    """Return (python_tool_count, lua_script_count)."""
+    """Return the number of Python tools in tools/."""
     try:
-        py_count = len([f for f in os.listdir(TOOLS) if f.endswith(".py")])
+        return len([f for f in os.listdir(TOOLS) if f.endswith(".py")])
     except Exception:
-        py_count = 0
-    try:
-        lua_count = len([f for f in os.listdir(LUA_SRC) if f.endswith(".lua")])
-    except Exception:
-        lua_count = 0
-    return py_count, lua_count
+        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -136,8 +112,6 @@ def run_special_interactive(cmd, label):
         _about()
     elif cmd == "__update__":
         _update()
-    elif cmd == "__lua__":
-        _install_lua()
     print()
     input("Press Enter to return to menu...")
 
@@ -148,8 +122,6 @@ def run_special_direct(cmd):
         _about()
     elif cmd == "__update__":
         _update()
-    elif cmd == "__lua__":
-        _install_lua()
 
 
 def _about():
@@ -164,10 +136,9 @@ def _about():
         print(f"  Version : {r.stdout.strip()}")
     except Exception as e:
         print(f"  Version : (git error: {e})")
-    print(f"  Repo    : https://github.com/rmeadomavic/ax12-tac-tools")
+    print("  Repo    : https://github.com/rmeadomavic/ax12-tac-tools")
     print(f"  Python  : {sys.version.split()[0]}")
-    py_n, lua_n = tool_counts()
-    print(f"  Tools   : {py_n} Python tools | {lua_n} Lua scripts")
+    print(f"  Tools   : {tool_counts()} Python tools")
     print("=" * 50)
 
 
@@ -178,34 +149,9 @@ def _update():
         timeout=60,
     )
     if r.returncode == 0:
-        print(">>> Repo updated. Re-installing Lua scripts...")
-        _install_lua()
+        print(">>> Repo updated.")
     else:
         print(">>> git pull failed (exit {})".format(r.returncode))
-
-
-def _install_lua():
-    print(f">>> Copying lua/*.lua -> {LUA_DEST} ...")
-    try:
-        lua_files = [f for f in os.listdir(LUA_SRC) if f.endswith(".lua")]
-    except Exception as e:
-        print(f">>> Error listing lua dir: {e}")
-        return
-    if not lua_files:
-        print(">>> No .lua files found in lua/")
-        return
-    ok = 0
-    fail = 0
-    for fname in lua_files:
-        src = os.path.join(LUA_SRC, fname)
-        dst = os.path.join(LUA_DEST, fname)
-        r = subprocess.run(["su", "0", "cp", src, dst], timeout=10)
-        if r.returncode == 0:
-            ok += 1
-        else:
-            print(f">>> Failed: {fname}")
-            fail += 1
-    print(f">>> Done: {ok} copied, {fail} failed.")
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +182,7 @@ def tui_run_tool(stdscr, label, description, cmd, timeout_sec):
     stdscr.refresh()
 
     # Handle special commands by exiting curses
-    if cmd in ("__update__", "__lua__", "__about__"):
+    if cmd in ("__update__", "__about__"):
         curses.endwin()
         run_special_interactive(cmd, label)
         # Re-init curses state (wrapper handles the outer setup)

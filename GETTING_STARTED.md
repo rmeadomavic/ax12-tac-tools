@@ -1,6 +1,6 @@
 # Getting Started
 
-These tools put your drone on ATAK while you fly it. CoT bridge reads MAVLink off ELRS, pushes position/heading/mode to the COP. Also has a TAK OSD, CCIP, 9-line, freq decon, mission timer, and preflight on the touchscreen.
+These tools put your drone on ATAK while you fly it. CoT bridge reads MAVLink off ELRS, pushes position/heading/mode to the COP.
 
 About 30 minutes from a stock AX12 to a live track on the map.
 
@@ -24,7 +24,7 @@ Open Termux, paste:
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-Installs Python/git/SSH, clones the repo, copies Lua scripts to Flyshark, sets up the web launcher. Safe to re-run if something breaks.
+Installs Python/git/SSH, clones the repo, sets up the web launcher. Safe to re-run if something breaks.
 
 ## Step 3: Open the Web UI
 
@@ -32,7 +32,7 @@ Go to `localhost:8080` in Chrome. Bookmark it to your home screen (three dots > 
 
 Tap a button, the tool runs. Gear icon for settings: add/remove/reorder tools there. Changes persist across updates.
 
-From the command line (SSH, etc.): `tac atak`, `tac gps`, `tac --help`.
+From the command line (SSH, etc.): `tac atak`, `tac cot-test`, `tac --help`.
 
 ## ATAK Setup
 
@@ -57,26 +57,20 @@ su 0 python3 tools/cot_bridge.py --atak-host 239.2.3.1       # multicast to all 
 
 Full reference: [docs/tak-setup.md](docs/tak-setup.md)
 
-## Lua Scripts
-
-Auto-installed to Flyshark. System Menu > Lua Scripts > Tools.
-
-TAK OSD, CCIP, 9-line CAS, MGRS, freq decon, mission timer, preflight, wind calc, and more. Full list in [lua/README.md](lua/README.md).
-
 ## Updating
 
 ```
 tac update
 ```
 
-Or tap UPDATE in the web UI. Pulls latest code and re-copies Lua scripts.
+Or tap UPDATE in the web UI. Pulls latest code.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
 | `su 0` permission denied | Check `/system/xbin/su` exists. Restart Termux. |
-| No GPS fix | Expected — the AX12 has no GPS antenna populated, so it never gets a satellite fix. `Net Location` returns WiFi/network position only. Operator self-position in the field needs an external/USB GPS. |
+| No GPS fix | Expected — the AX12 has no GPS antenna populated, so it never gets a satellite fix. Operator self-position in the field needs an external/USB GPS. |
 | Serial port busy | Close Flyshark. ATAK bridge uses ttyS1 (separate from Flyshark's ttyS0). |
 | `tac` not found | `source ~/.bashrc` or reopen Termux. |
 | Packages fail | `pkg update && pkg upgrade` |

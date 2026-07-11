@@ -1,6 +1,6 @@
 # TAK Integration
 
-Full reference for getting your drone on ATAK from the AX12. Covers both the CoT bridge (serial path) and the MAVLink bridge (WiFi path), multi-device setups, and the TAK OSD Lua script.
+Full reference for getting your drone on ATAK from the AX12. Covers both the CoT bridge (serial path) and the MAVLink bridge (WiFi path), and multi-device setups.
 
 ---
 
@@ -315,38 +315,6 @@ Example remarks string: `LOITER | Armed | 5.2m/s | 112m MSL`
 CoT events include a `stale` timestamp set 10 seconds in the future. If the
 bridge stops transmitting, ATAK removes the icon from the map after 10 seconds.
 This prevents stale tracks from lingering after loss of link.
-
----
-
-## TAK OSD Lua Script
-
-`lua/tak-osd.lua` renders a TAK-style tactical HUD directly on the AX12
-touchscreen through the Flyshark Lua VM — **no ATAK app required.**
-
-### Features
-
-- GPS coordinates in military degree-minute format (N/S/E/W)
-- MGRS grid reference
-- Compass rose with cardinal indicators (red N, green E/S/W) and heading readout
-- RSSI and Link Quality (LQ) bars with color-coded thresholds
-- TX battery voltage and percentage bar
-- Flight mode and RF mode readout
-- Stick channel bars (AIL, ELE, THR, RUD) with raw values
-- Armed/Disarmed status
-- Mission Elapsed Timer (MET)
-
-### Installation and launch
-
-1. Copy `lua/tak-osd.lua` to `/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS/`
-   on the AX12
-2. Open **RadioMaster App > System Menu > Lua Scripts > Tools**
-3. Select **TAK OSD**
-
-The script runs in CRSF mode and reads telemetry values (`gps-lat`, `gps-lon`,
-`Hdg`, `RQly`, `tx-voltage`, etc.) from the Flyshark telemetry source. It does
-not require MAVLink link mode — standard CRSF telemetry is sufficient.
-
-Double-tap the top-left corner of the screen to exit the script.
 
 ---
 

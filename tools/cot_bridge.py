@@ -30,10 +30,8 @@ import signal
 import socket
 import ssl
 import struct
-import sys
 import threading
 import time
-import uuid
 
 try:
     import termios
@@ -50,6 +48,7 @@ MAVLINK_V2_START = 0xFD
 
 # Message IDs we care about
 MSG_HEARTBEAT = 0
+MSG_SYS_STATUS = 1
 MSG_GLOBAL_POSITION_INT = 33
 
 # MAVLink v1 header: start, payload_len, seq, sysid, compid, msgid
@@ -63,6 +62,7 @@ MAVLINK_V2_CRC_LEN = 2
 # CRC extra bytes for checksum validation (per message type)
 CRC_EXTRA = {
     MSG_HEARTBEAT: 50,
+    MSG_SYS_STATUS: 124,
     MSG_GLOBAL_POSITION_INT: 104,
 }
 
@@ -335,6 +335,42 @@ def decode_heartbeat(payload: bytes) -> dict:
     }
 
 
+def decode_sys_status(payload: bytes) -> dict:
+    """Decode SYS_STATUS (msg 1): battery voltage / current / remaining.
+
+    MAVLink orders payload fields by descending type size on the wire, not by
+    declaration order, so the battery fields are NOT contiguous with voltage:
+
+        off  type   field
+        0    u32    onboard_control_sensors_present
+        4    u32    onboard_control_sensors_enabled
+        8    u32    onboard_control_sensors_health
+        12   u16    load
+        14   u16    voltage_battery      (mV)
+        16   u16    drop_rate_comm
+        18   u16    errors_comm
+        20   u16    errors_count1..4     (4 x u16 at 20/22/24/26)
+        28   i16    current_battery      (cA, -1 unknown)
+        30   i8     battery_remaining    (%, -1 unknown)
+    """
+    if len(payload) < 16:
+        return {}
+
+    voltage = struct.unpack_from('<H', payload, 14)[0] / 1000.0
+    current = -1.0
+    remaining = -1
+    if len(payload) >= 30:
+        current = struct.unpack_from('<h', payload, 28)[0] / 100.0
+    if len(payload) >= 31:
+        remaining = struct.unpack_from('<b', payload, 30)[0]
+
+    return {
+        'voltage': voltage,
+        'current': current,
+        'battery_remaining': remaining,
+    }
+
+
 # ===================================================================
 # CoT XML Formatter
 # ===================================================================
@@ -343,7 +379,8 @@ def format_cot_xml(lat: float, lon: float, alt: float, heading: float,
                    speed: float, flight_mode: str, armed: bool,
                    uid: str = "ELRS-Drone-1",
                    cot_type: str = "a-f-A-M-F-Q",
-                   stale_seconds: int = 10) -> str:
+                   stale_seconds: int = 10,
+                   battery: float = None) -> str:
     """Build a CoT event XML string for ATAK.
 
     CoT type breakdown: a-f-A-M-F-Q
@@ -365,6 +402,7 @@ def format_cot_xml(lat: float, lon: float, alt: float, heading: float,
         uid: CoT UID string for this entity.
         cot_type: CoT 2525C type string.
         stale_seconds: Seconds until the track goes stale on the map.
+        battery: Pack voltage in volts, or None to omit from the remarks.
     """
     now = time.time()
     time_str = _iso8601(now)
@@ -376,6 +414,8 @@ def format_cot_xml(lat: float, lon: float, alt: float, heading: float,
 
     status = "Armed" if armed else "Disarmed"
     remarks = f"{flight_mode} | {status} | {speed:.1f}m/s | {alt:.0f}m MSL"
+    if battery is not None:
+        remarks += f" | {battery:.1f}V"
 
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -704,6 +744,7 @@ class CoTBridge:
         # Current vehicle state
         self.position = None  # dict from decode_global_position_int
         self.heartbeat = None  # dict from decode_heartbeat
+        self.sys_status = None  # dict from decode_sys_status
         self.last_position_time = 0.0
         self.last_send_time = 0.0
         self.frames_parsed = 0
@@ -731,14 +772,14 @@ class CoTBridge:
             print(f"[cot_bridge] Opened {self.serial_port} at {self.baudrate} baud")
         except (OSError, RuntimeError) as e:
             print(f"[cot_bridge] Serial open failed: {e}")
-            print(f"[cot_bridge] Falling back to synthetic data")
+            print("[cot_bridge] Falling back to synthetic data")
             self._run_test_mode()
             self._close_sinks()
             return
 
         print(f"[cot_bridge] Sending CoT to {sinks_desc} every {self.send_interval}s")
         print(f"[cot_bridge] UID: {self.uid}")
-        print(f"[cot_bridge] Ctrl+C to stop")
+        print("[cot_bridge] Ctrl+C to stop")
 
         try:
             self._run_serial_mode()
@@ -809,6 +850,11 @@ class CoTBridge:
             if hb and hb.get('mav_type', 0) != 6:  # skip GCS heartbeats (type 6)
                 self.heartbeat = hb
 
+        elif frame.msg_id == MSG_SYS_STATUS:
+            ss = decode_sys_status(frame.payload)
+            if ss:
+                self.sys_status = ss
+
     def _send_cot(self):
         """Build and send a CoT datagram if we have position data."""
         now = time.monotonic()
@@ -833,6 +879,12 @@ class CoTBridge:
         if hb is None:
             hb = {'armed': False, 'flight_mode': 'UNKNOWN'}
 
+        battery = None
+        if self.sys_status:
+            voltage = self.sys_status.get('voltage', 0.0)
+            if voltage > 0:
+                battery = voltage
+
         xml = format_cot_xml(
             lat=pos['lat'],
             lon=pos['lon'],
@@ -843,6 +895,7 @@ class CoTBridge:
             armed=hb.get('armed', False),
             uid=self.uid,
             cot_type=cot_type_for(hb.get('mav_type')),
+            battery=battery,
         )
 
         xml_bytes = xml.encode('utf-8')

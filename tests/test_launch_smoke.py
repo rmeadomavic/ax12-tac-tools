@@ -18,8 +18,9 @@ Strategy (no hardware, no root, pure stdlib):
     Python traceback, or emits a dispatch-rejection phrase ("unknown command",
     "invalid choice", "the following arguments are required", ...). Everything
     else is a healthy launch: exit 0, a legitimate runtime failure that got
-    past argument parsing (e.g. gps_tool.py exiting 1 with "No GPS position"),
-    or a long-running tool still alive when the timeout kills it.
+    past argument parsing (e.g. a tool exiting 1 with a runtime error after it
+    already accepted its command line), or a long-running tool still alive when
+    the timeout kills it.
 
 Run: `python3 tests/test_launch_smoke.py`  (exit 0 = all launched, 1 = a crash)
 """
@@ -41,8 +42,8 @@ TIMEOUT = float(os.environ.get("AX12_SMOKE_TIMEOUT", "6"))
 
 # Output that proves the tool rejected its command line rather than running.
 # Exit code 2 is handled separately; these catch non-argparse dispatchers
-# (rover_nav prints "Unknown command: ..." and exits 1) and any tool that
-# swallows SystemExit but still prints an argparse usage error.
+# (a hand-rolled dispatcher prints "Unknown command: ..." and exits 1) and any
+# tool that swallows SystemExit but still prints an argparse usage error.
 LAUNCH_REJECT_RE = re.compile(
     r"unknown command"
     r"|unknown subcommand"
@@ -57,7 +58,7 @@ TRACEBACK_MARKER = "Traceback (most recent call last)"
 
 # Tools that must always be probed. If a refactor renames or unregisters one of
 # these, this guard trips so the regression net is never silently emptied.
-REQUIRED_TOOLS = {"payload_drop.py", "rover_nav.py"}
+REQUIRED_TOOLS = {"cot_bridge.py", "test_cot.py"}
 
 
 def load_registered_tools():

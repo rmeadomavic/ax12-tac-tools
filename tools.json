@@ -1,24 +1,32 @@
 {
   "categories": [
     {
-      "name": "TAK",
+      "name": "BRIDGE",
       "tools": [
         {
-          "label": "ATAK BRIDGE",
-          "description": "Stream drone position to ATAK",
+          "label": "COT BRIDGE",
+          "description": "Aircraft position to ATAK and TAK. Start here.",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/cot_bridge.py",
           "shortcut": "atak",
           "requires": ["root", "serial:/dev/ttyS1"],
           "long_running": true
         },
         {
-          "label": "COT TEST",
-          "description": "Send one test blip to verify ATAK",
+          "label": "ATAK TEST",
+          "description": "Send one CoT blip to verify ATAK is listening",
           "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/test_cot.py",
           "shortcut": "cot-test",
           "requires": [],
           "long_running": false,
           "timeout": 15
+        },
+        {
+          "label": "MAVLINK GCS",
+          "description": "Serve MAVLink to a laptop GCS (QGC, Mission Planner)",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
+          "shortcut": "mavlink",
+          "requires": [],
+          "long_running": true
         }
       ]
     },
@@ -33,33 +41,6 @@
           "requires": [],
           "long_running": false,
           "timeout": 20
-        },
-        {
-          "label": "AIRSPACE",
-          "description": "Pre-flight airspace restriction check",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/airspace_check.py brief",
-          "shortcut": "airspace",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 30
-        },
-        {
-          "label": "PAYLOAD DROP",
-          "description": "Aerial drop point calculator",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/payload_drop.py interactive",
-          "shortcut": "drop",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 30
-        },
-        {
-          "label": "NET LOCATION",
-          "description": "Network/WiFi position (no GNSS antenna - not a satellite fix)",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_tool.py position",
-          "shortcut": "gps",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 15
         }
       ]
     },
@@ -67,29 +48,12 @@
       "name": "UTILITIES",
       "tools": [
         {
-          "label": "MAVLINK BRIDGE",
-          "description": "Expose MAVLink to laptop GCS (QGC, Mission Planner)",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
-          "shortcut": "mavlink",
-          "requires": [],
-          "long_running": true
-        },
-        {
           "label": "GNSS DIAG",
           "description": "GNSS diagnostic - shows zero satellites (no antenna populated)",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/gps_position.py",
           "shortcut": "gps-mon",
           "requires": ["root"],
           "long_running": true
-        },
-        {
-          "label": "ROVER NAV",
-          "description": "ArduRover GPS nav and geofencing (UGV)",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py demo",
-          "shortcut": "rover",
-          "requires": [],
-          "long_running": false,
-          "timeout": 30
         }
       ]
     },
@@ -98,21 +62,12 @@
       "tools": [
         {
           "label": "UPDATE",
-          "description": "Pull latest code and re-copy Lua scripts",
+          "description": "Pull latest code",
           "cmd": "__update__",
           "shortcut": "update",
           "requires": [],
           "long_running": false,
           "timeout": 60
-        },
-        {
-          "label": "REINSTALL LUA",
-          "description": "Re-copy Lua scripts to Flyshark",
-          "cmd": "__lua__",
-          "shortcut": "lua",
-          "requires": ["root"],
-          "long_running": false,
-          "timeout": 30
         }
       ]
     }
