@@ -46,7 +46,7 @@
         {
           "label": "PAYLOAD DROP",
           "description": "Aerial drop point calculator",
-          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/payload_drop.py calc",
+          "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/payload_drop.py interactive",
           "shortcut": "drop",
           "requires": ["root"],
           "long_running": false,
@@ -85,7 +85,7 @@
         {
           "label": "ROVER NAV",
           "description": "ArduRover GPS nav and geofencing (UGV)",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py --demo",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/rover_nav.py demo",
           "shortcut": "rover",
           "requires": [],
           "long_running": false,

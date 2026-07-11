@@ -35,7 +35,7 @@ CATEGORIES = [
         ("Airspace Brief",   "Pre-flight airspace restriction check",
          f"su 0 {PYTHON3} {TOOLS}/airspace_check.py brief", 30, True),
         ("Payload Drop Calc","Aerial drop point calculator",
-         f"su 0 {PYTHON3} {TOOLS}/payload_drop.py calc",    30, True),
+         f"su 0 {PYTHON3} {TOOLS}/payload_drop.py interactive", 30, True),
         ("Net Location",     "Network/WiFi position (no GNSS antenna - not a sat fix)",
          f"su 0 {PYTHON3} {TOOLS}/gps_tool.py position",    15, True),
     ]),
@@ -45,7 +45,7 @@ CATEGORIES = [
         ("GNSS Diag",        "GNSS diagnostic - shows zero sats (no antenna)",
          f"su 0 {PYTHON3} {TOOLS}/gps_position.py",         0,  True),
         ("Rover Navigation", "ArduRover GPS nav and geofencing",
-         f"{PYTHON3} {TOOLS}/rover_nav.py --demo",          30, False),
+         f"{PYTHON3} {TOOLS}/rover_nav.py demo",          30, False),
     ]),
     ("SYSTEM", [
         ("Update Tools",     "git pull + re-copy Lua scripts",
