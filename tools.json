@@ -1,24 +1,32 @@
 {
   "categories": [
     {
-      "name": "TAK",
+      "name": "BRIDGE",
       "tools": [
         {
-          "label": "ATAK BRIDGE",
-          "description": "Stream drone position to ATAK",
+          "label": "COT BRIDGE",
+          "description": "Aircraft position to ATAK and TAK. Start here.",
           "cmd": "su 0 /data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/cot_bridge.py",
           "shortcut": "atak",
           "requires": ["root", "serial:/dev/ttyS1"],
           "long_running": true
         },
         {
-          "label": "COT TEST",
-          "description": "Send one test blip to verify ATAK",
+          "label": "ATAK TEST",
+          "description": "Send one CoT blip to verify ATAK is listening",
           "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/test_cot.py",
           "shortcut": "cot-test",
           "requires": [],
           "long_running": false,
           "timeout": 15
+        },
+        {
+          "label": "MAVLINK GCS",
+          "description": "Serve MAVLink to a laptop GCS (QGC, Mission Planner)",
+          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
+          "shortcut": "mavlink",
+          "requires": [],
+          "long_running": true
         }
       ]
     },
@@ -66,14 +74,6 @@
     {
       "name": "UTILITIES",
       "tools": [
-        {
-          "label": "MAVLINK BRIDGE",
-          "description": "Expose MAVLink to laptop GCS (QGC, Mission Planner)",
-          "cmd": "/data/data/com.termux/files/usr/bin/python3 ~/ax12-tac-tools/tools/mavlink_bridge.py bridge",
-          "shortcut": "mavlink",
-          "requires": [],
-          "long_running": true
-        },
         {
           "label": "GNSS DIAG",
           "description": "GNSS diagnostic - shows zero satellites (no antenna populated)",

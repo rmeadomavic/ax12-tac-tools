@@ -25,11 +25,13 @@ LUA_DEST = "/storage/emulated/0/AX12LUA/SCRIPTS/TOOLS"
 # Tool registry: (label, description, cmd, timeout_sec, needs_root)
 # timeout_sec=0 means no timeout (None passed to subprocess)
 CATEGORIES = [
-    ("TAK", [
-        ("ATAK CoT Bridge",  "Stream drone position to ATAK map",
+    ("BRIDGE", [
+        ("CoT Bridge",       "Aircraft position to ATAK and TAK. Start here.",
          f"su 0 {PYTHON3} {TOOLS}/cot_bridge.py",        0,  True),
-        ("CoT Test Send",    "Send one test blip to verify ATAK",
+        ("ATAK Test",        "Send one CoT blip to verify ATAK is listening",
          f"{PYTHON3} {TOOLS}/test_cot.py",                15, False),
+        ("MAVLink GCS",      "Serve MAVLink to a laptop GCS (QGC, Mission Planner)",
+         f"{PYTHON3} {TOOLS}/mavlink_bridge.py bridge",   0,  False),
     ]),
     ("FLIGHT OPS", [
         ("Airspace Brief",   "Pre-flight airspace restriction check",
@@ -40,8 +42,6 @@ CATEGORIES = [
          f"su 0 {PYTHON3} {TOOLS}/gps_tool.py position",    15, True),
     ]),
     ("UTILITIES", [
-        ("MAVLink Bridge",   "Connect QGC/Mission Planner via ELRS",
-         f"{PYTHON3} {TOOLS}/mavlink_bridge.py bridge",   0,  False),
         ("GNSS Diag",        "GNSS diagnostic - shows zero sats (no antenna)",
          f"su 0 {PYTHON3} {TOOLS}/gps_position.py",         0,  True),
         ("Rover Navigation", "ArduRover GPS nav and geofencing",
@@ -66,12 +66,12 @@ for _cat_name, _tools in CATEGORIES:
 
 # CLI shortcut table: shortcut -> label
 SHORTCUTS = {
-    "atak":      "ATAK CoT Bridge",
-    "cot-test":  "CoT Test Send",
+    "atak":      "CoT Bridge",
+    "cot-test":  "ATAK Test",
+    "mavlink":   "MAVLink GCS",
     "airspace":  "Airspace Brief",
     "drop":      "Payload Drop Calc",
     "gps":       "Net Location",
-    "mavlink":   "MAVLink Bridge",
     "gps-mon":   "GNSS Diag",
     "rover":     "Rover Navigation",
     "update":    "Update Tools",
