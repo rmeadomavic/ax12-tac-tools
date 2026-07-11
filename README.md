@@ -1,8 +1,12 @@
 # AX12 Tactical Tools
 
-The AX12 is an Android radio. Run the CoT bridge on it and your MAVLink telemetry off ELRS shows up on the COP — the tablet next to you or a TAK server the whole team's on — while you're flying.
+The AX12 is an Android radio. Run the CoT bridge on it and your aircraft shows up on the COP while you fly. The bridge reads MAVLink telemetry off the ELRS link on `/dev/ttyS1` and publishes the track as Cursor-on-Target to ATAK and any TAK server. The radio does it. No laptop, no second GCS.
 
-Also in here: TAK OSD for the touchscreen, CCIP, 9-line CAS, freq decon, mission timer, preflight checklist. Runs in Termux, stdlib Python only.
+The bridge sends the aircraft's position, straight from MAVLink. It never needs the operator's own position. That matters here: this radio has no GNSS antenna, so anything that wants the operator's location is dead. The aircraft track is unaffected.
+
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)
+![Platform: Android 9](https://img.shields.io/badge/platform-Android%209-green.svg)
 
 ## Install
 
@@ -12,61 +16,55 @@ Open Termux, paste this:
 pkg install -y curl && curl -sL https://raw.githubusercontent.com/rmeadomavic/ax12-tac-tools/main/install.sh | bash
 ```
 
-Open `localhost:8080` in Chrome and bookmark it to your home screen. The server starts on boot if you have Termux:Boot installed.
+Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md).
 
-Setup walkthrough: [GETTING_STARTED.md](GETTING_STARTED.md)
+## Run the bridge
 
-![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python 3.13](https://img.shields.io/badge/python-3.13-yellow.svg)
-![Platform: Android 9](https://img.shields.io/badge/platform-Android%209-green.svg)
-
-## What's in Here
+Set ATAK to listen on UDP 4242, then start the bridge:
 
 ```
-tools/           Python tools (CoT bridge, MAVLink bridge, GPS, airspace, etc.)
-lua/             Lua scripts for the Flyshark touchscreen UI
-shortcuts/       Termux:Widget home screen shortcuts
-web_launcher.py  The web UI server
-launcher.py      CLI/TUI launcher (for SSH use)
-install.sh       One-command installer
-tools.json       Tool registry (edit to add/remove/reorder tools)
+su 0 python3 tools/cot_bridge.py
 ```
 
-### Python Tools
+Your aircraft appears on the map. Confirm ATAK is listening before you fly:
 
-**Core** — flight kit:
+```
+python3 tools/test_cot.py            # one blip to ATAK at 0,0
+```
 
-| Tool | What it does |
-|------|-------------|
-| `cot_bridge.py` | Drone position on ATAK and TAK servers (TCP/TLS). |
-| `test_cot.py` | Sends a single CoT blip to verify ATAK is listening. |
-| `airspace_check.py` | Offline airspace briefing for the AO |
-| `payload_drop.py` | Drop point calculator |
-| `gps_tool.py` | Network/WiFi location (no GNSS antenna on board — not a satellite fix) |
+Feed a TAK server, or a specific tablet, instead of the local map:
 
-**Extras** — dev, diagnostics, platform-specific:
+```
+su 0 python3 tools/cot_bridge.py --tak-server tak.example:8087
+su 0 python3 tools/cot_bridge.py --atak-host 192.168.1.50
+```
 
-| Tool | What it does |
-|------|-------------|
-| `mavlink_bridge.py` | Expose MAVLink to laptop GCS (QGC, Mission Planner). Tuning/bench. |
-| `gps_position.py` | GNSS diagnostic — confirms zero satellites (no antenna populated). Diagnostic. |
-| `rover_nav.py` | ArduRover GPS nav and geofencing. UGV only. |
+TAK server framing, TLS, and mission-package certs: [docs/tak-setup.md](docs/tak-setup.md).
 
-### Lua Scripts (Touchscreen)
+## Auto-start on boot
 
-Installed automatically to Flyshark. Access: System Menu > Lua Scripts > Tools.
+Copy the opt-in boot hook so the bridge comes up on power-up:
 
-**Tactical:** TAK OSD, CCIP targeting, 9-line CAS, MGRS converter, mission timer, preflight checklist, freq decon
+```
+mkdir -p ~/.termux/boot
+cp ~/ax12-tac-tools/boot/start-cot-bridge.sh ~/.termux/boot/
+chmod +x ~/.termux/boot/start-cot-bridge.sh
+```
 
-**Flight Ops:** Fixed-wing helper, wind calc, Betaflight OSD, compass, training exercises, g-force, servo test
+Needs the Termux:Boot app from F-Droid. Delete the file to turn it off.
 
-**Field Utility:** Battery log, flight log, channel notes, motor test, site manager, unit converter, stopwatch
+## Also in here
+
+- `mavlink_bridge.py` serves MAVLink over TCP to QGC or Mission Planner on a laptop.
+- Lua touchscreen scripts: TAK OSD, CCIP, 9-line CAS, freq decon, mission timer, preflight. Full list in [lua/README.md](lua/README.md).
+- A web launcher on `localhost:8080` and a `tac` CLI for SSH use.
+
+Runs in Termux, stdlib Python only. The bridge is the point; the rest is along for the ride.
 
 ## Prerequisites
 
 - RadioMaster AX12 (stock firmware; root is built in)
-- Termux (installer handles the rest)
-- ELRS 3.5+ for MAVLink
+- ELRS 3.5+ in MAVLink mode
 - ATAK-CIV **4.10.x** (5.x needs Android 10+, won't install on the AX12)
 
 ## Related
