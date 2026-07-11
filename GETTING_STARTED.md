@@ -61,7 +61,7 @@ Full reference: [docs/tak-setup.md](docs/tak-setup.md)
 
 Auto-installed to Flyshark. System Menu > Lua Scripts > Tools.
 
-TAK OSD, CCIP, 9-line CAS, MGRS, freq decon, mission timer, preflight, wind calc, and more. Full list in [lua/README.md](lua/README.md).
+TAK OSD, CCIP, 9-line CAS, freq decon, mission timer, preflight, wind calc, and more. Full list in [lua/README.md](lua/README.md).
 
 ## Updating
 
