@@ -1336,7 +1336,7 @@ def main():
     p_bridge.add_argument('--udp-port', type=int, default=14550,
                           help='MAVLink UDP port (default: 14550)')
     p_bridge.add_argument('--tcp-host', default='0.0.0.0',
-                          help='TCP listen address (default: 127.0.0.1)')
+                          help='TCP listen address (default: 0.0.0.0; listens on all interfaces)')
     p_bridge.add_argument('--tcp-port', type=int, default=5760,
                           help='TCP listen port (default: 5760)')
     p_bridge.add_argument('--display', type=float, default=2.0,
@@ -1362,7 +1362,7 @@ def main():
     p_ser.add_argument('--baud', type=int, default=460800,
                        help='Serial baud rate (default: 460800)')
     p_ser.add_argument('--tcp-host', default='0.0.0.0',
-                       help='TCP listen address (default: 127.0.0.1)')
+                       help='TCP listen address (default: 0.0.0.0; listens on all interfaces)')
     p_ser.add_argument('--tcp-port', type=int, default=5760,
                        help='TCP listen port (default: 5760)')
     p_ser.add_argument('--display', type=float, default=2.0,
@@ -1372,7 +1372,7 @@ def main():
     p_test = sub.add_parser('test',
                             help='Synthetic MAVLink data on TCP 5760')
     p_test.add_argument('--tcp-host', default='0.0.0.0',
-                        help='TCP listen address (default: 127.0.0.1)')
+                        help='TCP listen address (default: 0.0.0.0; listens on all interfaces)')
     p_test.add_argument('--tcp-port', type=int, default=5760,
                         help='TCP listen port (default: 5760)')
     p_test.add_argument('--display', type=float, default=2.0,

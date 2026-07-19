@@ -1076,9 +1076,9 @@ class DemoGenerator:
 
     def __init__(self):
         self.t0 = time.monotonic()
-        # Camp Mackall area - recognizable to SORCC students
-        self.center_lat = 35.1395
-        self.center_lon = -79.0064
+        # Kitty Hawk, NC - first-flight field, neutral demo location
+        self.center_lat = 36.0646
+        self.center_lon = -75.7057
         self.orbit_radius = 0.002  # ~220m
         self.orbit_period = 120.0
         self.base_alt = 50.0

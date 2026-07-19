@@ -279,11 +279,18 @@ else
     run_test "launcher.py present" fail "not found at $REPO_DIR/launcher.py"
 fi
 
-# /dev/ttyS0 exists (UART for UMBUS)
-if [ -e /dev/ttyS0 ]; then
-    run_test "/dev/ttyS0 present" ok
+# /dev/ttyS1 exists (free MAVLink UART for the CoT bridge)
+if [ -e /dev/ttyS1 ]; then
+    run_test "/dev/ttyS1 bridge UART present" ok
 else
-    run_test "/dev/ttyS0 present" fail "UART device not found"
+    run_test "/dev/ttyS1 bridge UART present" fail "MAVLink UART device not found"
+fi
+
+# /dev/ttyS0 exists (UMBUS diagnostic; held by the OEM Flyshark process)
+if [ -e /dev/ttyS0 ]; then
+    run_test "/dev/ttyS0 UMBUS diagnostic" ok
+else
+    run_test "/dev/ttyS0 UMBUS diagnostic" fail "UMBUS UART device not found"
 fi
 
 # Root access
